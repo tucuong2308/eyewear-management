@@ -287,7 +287,7 @@ function trangHomNay() {
   const quaHen = S.denHen.filter((d) => mucGap(d, S.homNay) === 'qua').length;
   return `<h2 class="sec-h">Nhập đơn hôm nay <span class="muted">${S.don.length} đơn</span></h2>
       ${bangNhap('nhap', S.don, S.homNay)}
-      <h2 class="sec-h">Đến hẹn và quá hẹn <span class="muted">${S.denHen.length} đơn chờ trả${quaHen ? ` · <span class="do">${quaHen} quá hẹn</span>` : ''}</span></h2>
+      <h2 class="sec-h">Đến hẹn và quá hẹn <span class="muted">${S.denHen.length} đơn chờ trả${quaHen ? ` · <span class="chu-qua-hen">${quaHen} quá hẹn</span>` : ''}</span></h2>
       ${bangHen('hen', S.denHen, COT_HEN, 'Không có đơn nào đến hẹn hoặc quá hẹn. Mọi Kính hẹn đã trả xong.')}`;
 }
 
@@ -322,7 +322,7 @@ function chipDon(d: DonKinh) {
   const chip: string[] = [];
   if (d.ngayHen && d.ttKinh !== 'Đã trả') chip.push(nhanMuc(d));
   chip.push(`<span class="chip ${d.ttKinh === 'Đã trả' ? 'xong' : 'tron'}">${esc(d.ttKinh)}</span>`);
-  if (d.phanHoi === 'Sự cố') chip.push('<span class="chip qua">Sự cố</span>');
+  if (d.phanHoi === 'Sự cố') chip.push('<span class="chip su-co">Sự cố</span>');
   return chip.join('');
 }
 
@@ -491,14 +491,15 @@ function render() {
     'hom-nay': `<h1>Hôm nay</h1><span class="muted">${ngayNgan(S.homNay)}</span>`,
     'lich-su': `<h1>Lịch sử</h1><span class="muted">bấm một ngày để xem, sửa hoặc thêm đơn</span>`,
     tong: `<h1>Tổng</h1><span class="muted">${S.tong.length} đơn</span>`,
-    'kinh-hen': `<h1>Kính hẹn</h1><span class="muted">${S.kinhHen.length} đơn có ngày hẹn chưa trả${quaHen ? ` · <span class="do">${quaHen} quá hẹn</span>` : ''}</span>`,
+    'kinh-hen': `<h1>Kính hẹn</h1><span class="muted">${S.kinhHen.length} đơn có ngày hẹn chưa trả${quaHen ? ` · <span class="chu-qua-hen">${quaHen} quá hẹn</span>` : ''}</span>`,
     'su-co': `<h1>Sự cố</h1><span class="muted">${S.suCo.length} đơn có Phản hồi = Sự cố</span>`,
     'thung-rac': `<h1>Thùng rác</h1><span class="muted">${S.thungRac.length} đơn · khôi phục được bất cứ lúc nào</span>`,
   }[S.trang];
   const tabs = TRANG.map(([t, nhan]) => {
     const so = t === 'kinh-hen' ? S.kinhHen.length : t === 'su-co' ? S.suCo.length : t === 'thung-rac' ? S.thungRac.length : 0;
-    const doNen = (t === 'kinh-hen' && quaHen) || t === 'su-co';
-    const dem = so ? `<span class="count ${doNen ? 'do-nen' : ''}">${so}</span>` : '';
+    // tím: có đơn quá hẹn; đỏ: Sự cố
+    const nen = t === 'kinh-hen' && quaHen ? 'tim-nen' : t === 'su-co' ? 'do-nen' : '';
+    const dem = so ? `<span class="count ${nen}">${so}</span>` : '';
     return `<a href="#${t}" class="${S.trang === t ? 'on' : ''}" ${S.trang === t ? 'aria-current="page"' : ''}>${nhan}${dem}</a>`;
   }).join('');
   app.innerHTML = `
