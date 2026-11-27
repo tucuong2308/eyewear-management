@@ -7,6 +7,8 @@ import {
   DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, demTheoNgay, denHen, hoanThanh, kinhHen, laThang, suCo, timDon, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
 } from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
+import { DongBo } from './dong-bo.js';
+import type { KenhSheet } from '../core/dong-bo.js';
 import {
   THOI_HAN_MS, bamMaPhien, cookiePhien, docMaPhien, dungTaiKhoan, taoMaPhien, type TaiKhoan,
 } from './dang-nhap.js';
@@ -25,10 +27,17 @@ export interface ServerOptions {
   taiKhoan: TaiKhoan;
   /** Thời điểm hiện tại (ms); tiêm vào để test hạn phiên. */
   bayGio?: () => number;
+  /** Google Sheet để đồng bộ (ADR 0003); không có thì chỉ lưu trên máy. */
+  kenhSheet?: KenhSheet;
+  /** Chu kỳ tự đồng bộ (ms); 0 = không tự chạy (test gọi dongBo()). Mặc định 30 giây. */
+  chuKyDongBo?: number;
+  ghiLog?: (s: string) => void;
 }
 
 export interface RunningServer {
   port: number;
+  /** Chạy một lượt đồng bộ ngay (không làm gì nếu không có Sheet). */
+  dongBo(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -45,6 +54,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const today = opts.today ?? homNayTheoMay;
   const webDir = opts.webDir ?? join(ROOT, 'dist', 'web');
   const bayGio = opts.bayGio ?? Date.now;
+  const dongBo = opts.kenhSheet ? new DongBo(kho, opts.kenhSheet, bayGio, opts.ghiLog) : undefined;
 
   const server = createServer(async (req, res) => {
     try {
@@ -75,6 +85,15 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     }
     if (!ma || !kho.phienConHan(bamMaPhien(ma), bayGio())) {
       return guiJson(res, 401, { loi: 'Cần đăng nhập' });
+    }
+    if (url.pathname === '/api/dong-bo' && req.method === 'GET') {
+      // Không hiện trên giao diện (quyết định của chủ cửa hàng); giữ để bật cảnh báo sau này.
+      return guiJson(res, 200, {
+        coSheet: !!dongBo,
+        soChoDay: kho.choDay().length,
+        lanCuoiThanhCong: Number(kho.trangThai('lanCuoiThanhCong')) || null,
+        loiCuoi: kho.trangThai('loiCuoi') ?? null,
+      });
     }
     if (url.pathname === '/api/phien' && req.method === 'GET') {
       return guiJson(res, 200, { ten: opts.taiKhoan.ten });
@@ -182,10 +201,17 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const addr = server.address();
   const port = typeof addr === 'object' && addr ? addr.port : opts.port;
 
+  const chuKy = opts.chuKyDongBo ?? 30_000;
+  if (dongBo && chuKy > 0) dongBo.batDau(chuKy);
+
   return {
     port,
+    dongBo: async () => {
+      await dongBo?.chayMotLan();
+    },
     close: () =>
       new Promise<void>((resolve, reject) => {
+        dongBo?.dung();
         server.closeAllConnections();
         server.close((err) => {
           kho.dong();
