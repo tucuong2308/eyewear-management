@@ -12,6 +12,10 @@ _Avoid_: Khách hàng, BN, khách
 Người làm ở cửa hàng; có thể là Người tư vấn hoặc Người cắt của một Đơn kính. Cả cửa hàng dùng chung một tài khoản đăng nhập.
 _Avoid_: User, tài khoản
 
+**Máy quầy**:
+Máy tính duy nhất ở quầy chạy bản exe; các thiết bị khác trong cửa hàng dùng chung dữ liệu với nó qua Wi-Fi.
+_Avoid_: Máy chủ, server
+
 ## Đơn kính
 
 **Đơn kính**:
