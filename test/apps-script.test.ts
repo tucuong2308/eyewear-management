@@ -58,6 +58,30 @@ describe('Apps Script: giao kèo đồng bộ', () => {
     expect(k).toEqual({ ok: true, moc: 4, thayDoi: [{ id: 'd2', truong: 'ten', giaTri: 'BÌNH' }, { id: 'd1', truong: 'thungRac', giaTri: '1' }] });
   });
 
+  it('ghi gộp: một lô đẩy chỉ gọi ghi Sheet vài lần và không ghi đè dòng không đổi', () => {
+    const { b, khoa } = sheetMoi();
+    xuLyYeuCau(b, { hanhDong: 'day', khoa, thayDoi: ['d1', 'd2', 'd3'].map((id) => ({ id, truong: 'ten', giaTri: id })) }, LUC);
+    b.lanGhi = [];
+    const thayDoi = [{ id: 'd1', truong: 'sdt', giaTri: '01' }, { id: 'd3', truong: 'sdt', giaTri: '03' }];
+    for (let i = 0; i < 100; i++) {
+      for (const truong of ['ten', 'ngayDat', 'mp', 'mt', 'ttKinh']) thayDoi.push({ id: `moi-${i}`, truong, giaTri: `${truong}-${i}` });
+    }
+    xuLyYeuCau(b, { hanhDong: 'day', khoa, thayDoi }, LUC);
+
+    // d1 (dòng 1) riêng; d3 (dòng 3) liền với 100 dòng mới nên chung một vùng; d2 không ghi lại; nhật ký một lần
+    expect(b.lanGhi).toEqual([
+      { ten: TAB.don, hangDau: 1, soHang: 1 },
+      { ten: TAB.don, hangDau: 3, soHang: 101 },
+      { ten: TAB.nhatKy, hangDau: 4, soHang: 502 },
+    ]);
+    const don = b.doc(TAB.don);
+    const tieuDe = don[0]!;
+    expect(don).toHaveLength(104);
+    expect(don[3]![tieuDe.indexOf('SĐT')]).toBe('03');
+    expect(don[103]![tieuDe.indexOf('MT')]).toBe('mt-99');
+    expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 0 }, LUC)).toMatchObject({ moc: 505 });
+  });
+
   it('bỏ qua trường lạ', () => {
     const { b, khoa } = sheetMoi();
     xuLyYeuCau(b, { hanhDong: 'day', khoa, thayDoi: [{ id: 'd1', truong: 'xoaHet', giaTri: 'x' }] }, LUC);

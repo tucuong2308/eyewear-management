@@ -148,7 +148,7 @@ describe('Sửa một ô', () => {
   });
 });
 
-// Điền đủ mọi trường bắt buộc trước khi Hoàn thành (mọi trường trừ ADD, ship, ghi chú).
+// Điền đủ mọi trường cần điền (mọi trường trừ ADD, ship, ghi chú).
 const DU_THONG_TIN: Record<string, string> = {
   tuoi: '30', sdt: '0912345678', mp: '-1.25', mt: '-1.50', hang: 'FANO', loai: 'FANO 1.61', nguon: 'Kính sẵn',
   ttTrong: 'Đã có', tuVan: 'Lan', cat: 'Minh', phanHoi: 'Tốt',
@@ -185,21 +185,13 @@ describe('Đến hẹn và quá hẹn', () => {
 });
 
 describe('Hoàn thành', () => {
-  it('bị chặn khi thiếu trường bắt buộc và trả về đúng các trường còn thiếu', async () => {
+  it('vẫn Hoàn thành được khi còn ô trống (không trường nào bắt buộc, ô trống chỉ tô đỏ)', async () => {
     const don = await taoDonHen('Thiếu nhiều', HOM_NAY, false);
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'ttTrong', value: '' });
     const r = await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`);
-    expect(r.status).toBe(422);
-    // Tình trạng tròng và Tình trạng kính có giá trị mặc định nên không bị tính là thiếu
-    expect(r.body.thieu).toEqual(['tuoi', 'sdt', 'mp', 'mt', 'hang', 'loai', 'nguon']);
-    expect(r.body.loi).toContain('SĐT');
-  });
-
-  it('Tình trạng kính để trống cũng bị chặn', async () => {
-    const don = await taoDonHen('Xóa tình trạng', HOM_NAY);
-    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'ttKinh', value: '' });
-    const r = await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`);
-    expect(r.status).toBe(422);
-    expect(r.body.thieu).toEqual(['ttKinh']);
+    expect(r.status).toBe(200);
+    expect(r.body.ttKinh).toBe('Đã trả');
+    expect(r.body.sdt).toBe('');
   });
 
   it('không bắt buộc Người tư vấn, Người cắt, Phản hồi', async () => {

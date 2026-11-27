@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, demTheoNgay, denHen, hoanThanh, kinhHen, laThang, suCo, timDon, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
+  DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, demTheoNgay, denHen, kinhHen, laThang, suCo, timDon, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
 } from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
 import { xuatExcel } from './xuat-excel.js';
@@ -178,8 +178,6 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     if (ht && req.method === 'POST') {
       const don = kho.lay(decodeURIComponent(ht[1]!));
       if (!don) return guiJson(res, 404, { loi: 'Không tìm thấy Đơn kính' });
-      const kq = hoanThanh(don);
-      if (!kq.ok) return guiJson(res, 422, { loi: kq.loi, thieu: kq.thieu });
       return guiJson(res, 200, kho.sua(don.id, 'ttKinh', DA_TRA));
     }
     const m = url.pathname.match(/^\/api\/don-kinh\/([^/]+)$/);

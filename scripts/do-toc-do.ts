@@ -45,4 +45,4 @@ async function do20(ten: string, viec: () => Promise<unknown>) {
 await do20('tải danh sách', () => kenh.keo(0));
 let n = 0;
 await do20('lưu 1 ô', () => kenh.day([{ id: 'gia-0', truong: 'ghiChu', giaTri: `đo ${++n}` }]));
-console.log('Tiêu chí: tải trang lần đầu ≤ 2 giây (thao tác lưu chạy ngầm, người dùng không phải chờ).');
+console.log('Tiêu chí: giao diện phản hồi dưới 0,5 giây → p90 của "tải danh sách" phải dưới 500 ms (lưu chạy ngầm, người dùng không phải chờ).');

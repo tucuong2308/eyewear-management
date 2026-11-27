@@ -4,6 +4,8 @@ import type { BangTinh } from '../src/apps-script/xu-ly.js';
 export class BangTinhGia implements BangTinh {
   tabs = new Map<string, string[][]>();
   an = new Set<string>();
+  /** Mỗi lần ghi (mỗi lần gọi Google thật), để test số lần gọi. */
+  lanGhi: { ten: string; hangDau: number; soHang: number }[] = [];
 
   coTab(ten: string) {
     return this.tabs.has(ten);
@@ -15,14 +17,16 @@ export class BangTinhGia implements BangTinh {
   doc(ten: string) {
     return (this.tabs.get(ten) ?? []).map((h) => [...h]);
   }
-  ghiO(ten: string, hang: number, cot: number, giaTri: string) {
+  ghiVung(ten: string, hangDau: number, giaTri: string[][]) {
+    if (!giaTri.length) return;
+    this.lanGhi.push({ ten, hangDau, soHang: giaTri.length });
     const t = this.tabs.get(ten)!;
-    while (t.length <= hang) t.push([]);
-    const h = t[hang]!;
-    while (h.length <= cot) h.push('');
-    h[cot] = giaTri;
+    giaTri.forEach((h, i) => {
+      while (t.length <= hangDau + i) t.push([]);
+      t[hangDau + i] = [...h];
+    });
   }
-  themHang(ten: string, giaTri: string[]) {
-    this.tabs.get(ten)!.push([...giaTri]);
+  themHang(ten: string, hang: string[][]) {
+    this.ghiVung(ten, this.tabs.get(ten)!.length, hang);
   }
 }
