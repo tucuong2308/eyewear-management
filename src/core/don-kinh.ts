@@ -83,6 +83,14 @@ export function mucGap(d: DonKinh, homNay: string): MucGap {
   return n < 0 ? 'qua' : n <= 1 ? 'gan' : n <= 5 ? 'sap' : '';
 }
 
+export const SU_CO = 'Sự cố';
+export const laSuCo = (d: DonKinh) => d.phanHoi === SU_CO;
+
+/** Đơn kính có Phản hồi = Sự cố; mới đặt nhất lên đầu. */
+export function suCo(ds: DonKinh[]): DonKinh[] {
+  return ds.filter(laSuCo).sort((a, b) => b.ngayDat.localeCompare(a.ngayDat));
+}
+
 /** Mọi Kính hẹn; hẹn sớm nhất lên đầu. */
 export function kinhHen(ds: DonKinh[]): DonKinh[] {
   return ds.filter(laKinhHen).sort((a, b) => a.ngayHen.localeCompare(b.ngayHen));

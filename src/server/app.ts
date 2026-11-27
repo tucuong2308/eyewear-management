@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, denHen, hoanThanh, kinhHen, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
+  DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, denHen, hoanThanh, kinhHen, suCo, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
 } from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
 
@@ -73,6 +73,9 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       if (!kq.ok) return guiJson(res, 400, { loi: kq.loi });
       if (kq.moi) kho.themVaoDanhSach(loai, kq.ds[kq.ds.length - 1]!);
       return guiJson(res, 201, kho.danhSach()[loai]);
+    }
+    if (url.pathname === '/api/su-co' && req.method === 'GET') {
+      return guiJson(res, 200, suCo(kho.tatCa()));
     }
     if (url.pathname === '/api/kinh-hen' && req.method === 'GET') {
       return guiJson(res, 200, kinhHen(kho.tatCa()));

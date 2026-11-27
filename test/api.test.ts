@@ -196,6 +196,33 @@ describe('Trang Kính hẹn', () => {
   });
 });
 
+describe('Sự cố', () => {
+  it('đơn có Phản hồi = Sự cố hiện ở trang Sự cố, đổi khỏi Sự cố thì rời đi', async () => {
+    const { body: don } = await api('POST', '/api/don-kinh', { ten: 'Cắt sai độ' });
+    await api('POST', '/api/don-kinh', { ten: 'Bình thường' });
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'phanHoi', value: 'Sự cố' });
+    expect((await api('GET', '/api/su-co')).body.map((d: { id: string }) => d.id)).toEqual([don.id]);
+
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'phanHoi', value: 'Tốt' });
+    expect((await api('GET', '/api/su-co')).body).toEqual([]);
+  });
+
+  it('đơn Sự cố chưa Hoàn thành vẫn ở Kính hẹn', async () => {
+    const don = await taoDonHen('Sự cố chưa trả', '2026-11-30');
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'phanHoi', value: 'Sự cố' });
+    expect((await api('GET', '/api/kinh-hen')).body.map((d: { id: string }) => d.id)).toEqual([don.id]);
+    expect((await api('GET', '/api/su-co')).body.map((d: { id: string }) => d.id)).toEqual([don.id]);
+  });
+
+  it('bỏ chọn Phản hồi (để trống) được', async () => {
+    const { body: don } = await api('POST', '/api/don-kinh', { ten: 'Bấm nhầm' });
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'phanHoi', value: 'Sự cố' });
+    const r = await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'phanHoi', value: '' });
+    expect(r.body.phanHoi).toBe('');
+    expect((await api('GET', '/api/su-co')).body).toEqual([]);
+  });
+});
+
 describe('Danh sách lựa chọn', () => {
   it('có sẵn các giá trị mặc định', async () => {
     const r = await api('GET', '/api/danh-sach');
