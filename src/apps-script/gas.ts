@@ -32,12 +32,12 @@ class BangTinhGas implements BangTinh {
   doc(ten: string): string[][] {
     return this.tab(ten).getDataRange().getDisplayValues();
   }
-  ghiO(ten: string, hang: number, cot: number, giaTri: string) {
-    this.tab(ten).getRange(hang + 1, cot + 1).setNumberFormat('@').setValue(giaTri);
+  ghiVung(ten: string, hangDau: number, giaTri: string[][]) {
+    if (!giaTri.length) return;
+    this.tab(ten).getRange(hangDau + 1, 1, giaTri.length, giaTri[0]!.length).setNumberFormat('@').setValues(giaTri);
   }
-  themHang(ten: string, giaTri: string[]) {
-    const sh = this.tab(ten);
-    sh.getRange(sh.getLastRow() + 1, 1, 1, giaTri.length).setNumberFormat('@').setValues([giaTri]);
+  themHang(ten: string, hang: string[][]) {
+    this.ghiVung(ten, this.tab(ten).getLastRow(), hang);
   }
 }
 
@@ -83,7 +83,10 @@ export function caiDat() {
     ScriptApp.newTrigger('saoLuuHangDem').timeBased().everyDays(1).atHour(23).create();
   }
   const cd = docCaiDat(b);
-  return `Đã cài đặt. Khóa Máy quầy: ${cd[CAI_DAT.khoa]} (chép vào config.local.json của Máy quầy).`;
+  const kq = `Đã cài đặt. Khóa Máy quầy: ${cd[CAI_DAT.khoa]} (chép vào config.local.json của Máy quầy).`;
+  // Bấm Chạy trong trình soạn Apps Script không hiện giá trị trả về, chỉ hiện nhật ký
+  console.log(kq);
+  return kq;
 }
 
 /** Sao lưu hằng đêm: chép cả file vào thư mục sao lưu, giữ 30 bản mới nhất, bản cũ hơn vào thùng rác Drive. */

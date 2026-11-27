@@ -24,8 +24,10 @@ export interface BangTinh {
   /** Tạo tab với hàng tiêu đề; ô ở tab này luôn giữ dạng chữ (không tự đổi ngày/số). */
   taoTab(ten: string, tieuDe: string[], an?: boolean): void;
   doc(ten: string): string[][];
-  ghiO(ten: string, hang: number, cot: number, giaTri: string): void;
-  themHang(ten: string, giaTri: string[]): void;
+  /** Ghi một vùng chữ nhật bắt đầu ở hàng `hangDau`, cột 0 (một lần gọi Google). */
+  ghiVung(ten: string, hangDau: number, giaTri: string[][]): void;
+  /** Thêm các hàng vào cuối tab (một lần gọi Google). */
+  themHang(ten: string, hang: string[][]): void;
 }
 
 /** Tạo các tab còn thiếu; lần đầu tạo khóa Máy quầy và mật khẩu ngẫu nhiên. Chạy lại an toàn. */
@@ -36,13 +38,15 @@ export function khoiTao(b: BangTinh, ngauNhien: () => string) {
     const loai = Object.keys(TIEU_DE_DANH_SACH) as (keyof typeof DANH_SACH_MAC_DINH)[];
     b.taoTab(TAB.danhSach, loai.map((k) => TIEU_DE_DANH_SACH[k]));
     const dai = Math.max(...loai.map((k) => DANH_SACH_MAC_DINH[k].length));
-    for (let i = 0; i < dai; i++) b.themHang(TAB.danhSach, loai.map((k) => DANH_SACH_MAC_DINH[k][i] ?? ''));
+    b.themHang(TAB.danhSach, Array.from({ length: dai }, (_, i) => loai.map((k) => DANH_SACH_MAC_DINH[k][i] ?? '')));
   }
   if (!b.coTab(TAB.caiDat)) {
     b.taoTab(TAB.caiDat, ['Cài đặt', 'Giá trị']);
-    b.themHang(TAB.caiDat, [CAI_DAT.ten, 'cuahang']);
-    b.themHang(TAB.caiDat, [CAI_DAT.matKhau, ngauNhien()]);
-    b.themHang(TAB.caiDat, [CAI_DAT.khoa, ngauNhien() + ngauNhien()]);
+    b.themHang(TAB.caiDat, [
+      [CAI_DAT.ten, 'cuahang'],
+      [CAI_DAT.matKhau, ngauNhien()],
+      [CAI_DAT.khoa, ngauNhien() + ngauNhien()],
+    ]);
   }
 }
 
@@ -50,23 +54,36 @@ export function docCaiDat(b: BangTinh): Record<string, string> {
   return Object.fromEntries(b.doc(TAB.caiDat).slice(1).map((h) => [h[0] ?? '', h[1] ?? '']));
 }
 
-/** Ghi các ô lên tab Đơn kính (tạo dòng cho đơn mới), mỗi ô ghi thêm một dòng nhật ký. */
+/** Ghi các ô lên tab Đơn kính (tạo dòng cho đơn mới), mỗi ô thêm một dòng nhật ký. */
 export function day(b: BangTinh, thayDoi: ThayDoiO[], luc: string) {
-  const bang = b.doc(TAB.don);
+  // Mỗi lần gọi Google mất cỡ chục đến trăm ms, nên sửa trong bộ nhớ rồi ghi gộp:
+  // mỗi cụm dòng liền nhau một lần, nhật ký một lần. Dòng không đổi thì không ghi lại.
+  const rong = TRUONG_THEO_COT.length;
+  const bang = b.doc(TAB.don).map((h) => Array.from({ length: rong }, (_, c) => h[c] ?? ''));
   const hangCua = new Map(bang.slice(1).map((h, i) => [h[0], i + 1]));
+  const doi = new Set<number>();
+  const nhatKy: string[][] = [];
   for (const o of thayDoi) {
     if (!laTruongDongBo(o.truong) || !o.id) continue;
     let hang = hangCua.get(o.id);
     if (hang === undefined) {
-      const moi = TRUONG_THEO_COT.map((t) => (t === 'id' ? o.id : ''));
-      b.themHang(TAB.don, moi);
       hang = bang.length;
-      bang.push(moi);
+      bang.push(TRUONG_THEO_COT.map((t) => (t === 'id' ? o.id : '')));
       hangCua.set(o.id, hang);
     }
-    b.ghiO(TAB.don, hang, TRUONG_THEO_COT.indexOf(o.truong), String(o.giaTri ?? ''));
-    b.themHang(TAB.nhatKy, [o.id, o.truong, String(o.giaTri ?? ''), luc]);
+    const giaTri = String(o.giaTri ?? '');
+    bang[hang]![TRUONG_THEO_COT.indexOf(o.truong)] = giaTri;
+    doi.add(hang);
+    nhatKy.push([o.id, o.truong, giaTri, luc]);
   }
+  const hangDoi = [...doi].sort((x, y) => x - y);
+  for (let i = 0; i < hangDoi.length; ) {
+    let k = i;
+    while (k + 1 < hangDoi.length && hangDoi[k + 1] === hangDoi[k]! + 1) k++;
+    b.ghiVung(TAB.don, hangDoi[i]!, bang.slice(hangDoi[i], hangDoi[k]! + 1));
+    i = k + 1;
+  }
+  if (nhatKy.length) b.themHang(TAB.nhatKy, nhatKy);
 }
 
 /** Các ô đổi sau mốc (mốc = số dòng nhật ký đã đọc), cùng mốc mới. */
@@ -86,7 +103,7 @@ export function ghiNhanSuaTay(b: BangTinh, tab: string, hang: number, cot: numbe
   if (!truong || truong === 'id') return;
   const id = b.doc(TAB.don)[hang]?.[0];
   if (!id) return;
-  b.themHang(TAB.nhatKy, [id, truong, giaTri, luc]);
+  b.themHang(TAB.nhatKy, [[id, truong, giaTri, luc]]);
 }
 
 /** Xử lý một yêu cầu HTTP (body JSON) theo giao kèo; luôn trả object để gửi về dạng JSON. */
