@@ -150,3 +150,26 @@ export function tabXem(tabTong: string, daTra: string, suCo: string) {
 }
 
 export const RONG_COT = (c: CotTong) => (c.loai === 'truong' ? c.rong : undefined) ?? (c.loai === 'id' ? 38 : c.loai === 'tick' ? 10 : 12);
+
+/**
+ * Công thức viết kiểu Mỹ (dấu phẩy) → kiểu các vùng dùng dấu phẩy thập phân như Việt Nam:
+ * phẩy giữa tham số thành chấm phẩy, phẩy giữa cột trong mảng {…} thành gạch chéo ngược.
+ */
+export function congThucChamPhay(ct: string): string {
+  const ngoac: string[] = [];
+  let trongChuoi = false;
+  let kq = '';
+  for (const k of ct) {
+    if (k === '"') trongChuoi = !trongChuoi;
+    if (!trongChuoi) {
+      if (k === '(' || k === '{') ngoac.push(k);
+      else if (k === ')' || k === '}') ngoac.pop();
+      else if (k === ',') {
+        kq += ngoac.at(-1) === '{' ? String.fromCharCode(92) : ';'; // 92 = gạch chéo ngược
+        continue;
+      }
+    }
+    kq += k;
+  }
+  return kq;
+}
