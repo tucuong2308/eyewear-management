@@ -1,6 +1,5 @@
 // Cấu hình của Máy quầy: tài khoản chung nằm trong config.local.json cạnh dữ liệu (không bao giờ commit).
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import type { TaiKhoan } from './dang-nhap.js';
@@ -29,23 +28,21 @@ export function diaChiMangNoiBo(): string[] {
 }
 
 export interface CauHinh {
-  taiKhoan: TaiKhoan;
-  /** true khi vừa tạo tài khoản mới với mật khẩu ngẫu nhiên (cần báo cho chủ cửa hàng). */
-  moiTao: boolean;
+  /** Chỉ có khi config.local.json khai báo "taiKhoan" (bật đăng nhập). Chạy local mặc định không cần. */
+  taiKhoan?: TaiKhoan;
   duongDan: string;
   /** Web App Apps Script của Google Sheet để đồng bộ; chưa có thì chỉ lưu trên máy. */
   sheet?: CauHinhSheet;
 }
 
-/** Đọc cấu hình; lần đầu tạo tài khoản "cuahang" với mật khẩu ngẫu nhiên. */
+/** Đọc config.local.json nếu có (không bắt buộc). */
 export function docCauHinh(dataDir: string): CauHinh {
   const duongDan = join(dataDir, 'config.local.json');
-  let moiTao = false;
-  if (!existsSync(duongDan)) {
-    const moi = { taiKhoan: { ten: 'cuahang', matKhau: randomBytes(6).toString('base64url') } };
-    writeFileSync(duongDan, JSON.stringify(moi, null, 2) + '\n', 'utf8');
-    moiTao = true;
-  }
-  const { taiKhoan, sheet } = JSON.parse(readFileSync(duongDan, 'utf8')) as { taiKhoan: TaiKhoan; sheet?: CauHinhSheet };
-  return { taiKhoan, moiTao, duongDan, sheet: sheet?.url && sheet.khoa ? sheet : undefined };
+  if (!existsSync(duongDan)) return { duongDan };
+  const { taiKhoan, sheet } = JSON.parse(readFileSync(duongDan, 'utf8')) as { taiKhoan?: TaiKhoan; sheet?: CauHinhSheet };
+  return {
+    duongDan,
+    taiKhoan: taiKhoan?.ten && taiKhoan.matKhau ? taiKhoan : undefined,
+    sheet: sheet?.url && sheet.khoa ? sheet : undefined,
+  };
 }

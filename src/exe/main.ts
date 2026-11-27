@@ -96,10 +96,6 @@ async function chayNen() {
   });
   ghiLog(ch.sheet ? 'Đồng bộ Google Sheet: bật (30 giây một lần)' : 'Đồng bộ Google Sheet: chưa cấu hình (thêm "sheet": { "url", "khoa" } vào config.local.json)');
   ghiLog(`Máy chủ chạy tại ${URL_APP}; mạng nội bộ: ${diaChiMangNoiBo().map((a) => `http://${a}:${CONG}`).join(', ')}`);
-  if (ch.moiTao) {
-    // Lần đầu: mở file cấu hình để chủ cửa hàng thấy và đổi mật khẩu ngẫu nhiên.
-    spawn('notepad.exe', [ch.duongDan], { detached: true, stdio: 'ignore' }).unref();
-  }
   const khay = khayHeThong();
   const tat = () => {
     khay.kill();

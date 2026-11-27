@@ -25,7 +25,11 @@ export interface ServerOptions {
   /** Đọc một tệp giao diện theo tên; exe dùng để lấy tệp nhúng sẵn thay cho webDir. */
   docTepGiaoDien?: (ten: string) => Promise<Buffer>;
   /** Tài khoản chung của cửa hàng. */
-  taiKhoan: TaiKhoan;
+  /**
+   * Tài khoản chung. Không có = không cần đăng nhập (chạy local trên Máy quầy, quyết định 2026-11-27).
+   * Bản web online mở ra Internet thì phải có.
+   */
+  taiKhoan?: TaiKhoan;
   /** Thời điểm hiện tại (ms); tiêm vào để test hạn phiên. */
   bayGio?: () => number;
   /** Google Sheet để đồng bộ (ADR 0003); không có thì chỉ lưu trên máy. */
@@ -70,15 +74,17 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   });
 
   async function xuLyApi(req: IncomingMessage, res: ServerResponse, url: URL) {
+    const tk = opts.taiKhoan;
     if (url.pathname === '/api/dang-nhap' && req.method === 'POST') {
       const body = await docJson(req);
-      if (!dungTaiKhoan(opts.taiKhoan, body.ten, body.matKhau)) {
+      if (!tk) return guiJson(res, 200, { ten: null });
+      if (!dungTaiKhoan(tk, body.ten, body.matKhau)) {
         return guiJson(res, 401, { loi: 'Sai tên đăng nhập hoặc mật khẩu' });
       }
       const ma = taoMaPhien();
       kho.taoPhien(bamMaPhien(ma), bayGio() + THOI_HAN_MS);
       res.setHeader('set-cookie', cookiePhien(ma, THOI_HAN_MS / 1000));
-      return guiJson(res, 200, { ten: opts.taiKhoan.ten });
+      return guiJson(res, 200, { ten: tk.ten });
     }
     const ma = docMaPhien(req);
     if (url.pathname === '/api/dang-xuat' && req.method === 'POST') {
@@ -86,7 +92,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       res.setHeader('set-cookie', cookiePhien('', 0));
       return guiJson(res, 200, {});
     }
-    if (!ma || !kho.phienConHan(bamMaPhien(ma), bayGio())) {
+    if (tk && (!ma || !kho.phienConHan(bamMaPhien(ma), bayGio()))) {
       return guiJson(res, 401, { loi: 'Cần đăng nhập' });
     }
     if (url.pathname === '/api/dia-chi' && req.method === 'GET') {
@@ -104,7 +110,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       });
     }
     if (url.pathname === '/api/phien' && req.method === 'GET') {
-      return guiJson(res, 200, { ten: opts.taiKhoan.ten });
+      return guiJson(res, 200, { canDangNhap: !!tk, ten: tk?.ten ?? null });
     }
     if (url.pathname === '/api/don-kinh' && req.method === 'GET') {
       const ngay = url.searchParams.get('ngayDat') ?? today();

@@ -60,6 +60,8 @@ const S = {
   trang: trangTuHash(),
   /** null = chưa biết; false = phải hiện màn hình đăng nhập. */
   daDangNhap: null as boolean | null,
+  /** false khi chạy local trên Máy quầy: không có đăng nhập, ẩn nút Đăng xuất. */
+  canDangNhap: false,
   /** Đơn kính đang mở trong form (điện thoại). */
   mo: null as string | null,
   /** Bảng "Mở trên thiết bị khác": các link mạng nội bộ; null = đang đóng. */
@@ -110,7 +112,8 @@ async function goi<T>(method: string, path: string, body?: unknown): Promise<T> 
 }
 
 async function taiLai() {
-  const [don, denHen, kinhHen, suCo, thungRac, ds, lichDem, donNgayChon, tong] = await Promise.all([
+  const [phien, don, denHen, kinhHen, suCo, thungRac, ds, lichDem, donNgayChon, tong] = await Promise.all([
+    goi<{ canDangNhap: boolean }>('GET', '/api/phien'),
     goi<DonKinh[]>('GET', `/api/don-kinh?ngayDat=${S.homNay}`),
     goi<DonKinh[]>('GET', '/api/den-hen'),
     goi<DonKinh[]>('GET', '/api/kinh-hen'),
@@ -122,6 +125,7 @@ async function taiLai() {
     goi<DonKinh[]>('GET', `/api/tong?q=${encodeURIComponent(S.tim)}&thang=${S.thangTong}`),
   ]);
   S.daDangNhap = true;
+  S.canDangNhap = phien.canDangNhap;
   S.lichDem = lichDem;
   S.donNgayChon = donNgayChon;
   S.tong = tong;
@@ -571,7 +575,7 @@ function render() {
     return `<a href="#${t}" class="${S.trang === t ? 'on' : ''}" ${S.trang === t ? 'aria-current="page"' : ''}>${nhan}${dem}</a>`;
   }).join('');
   app.innerHTML = `
-    <div class="top"><div class="wrap row"><span class="brand">Sổ Đơn Kính</span><nav class="tabs">${tabs}</nav><span class="grow"></span><button class="btn small" data-act="chia-se" title="Lấy link mở app trên điện thoại hoặc máy khác">📱 Mở trên máy khác</button><button class="btn small ghost" data-act="dang-xuat">Đăng xuất</button></div></div>
+    <div class="top"><div class="wrap row"><span class="brand">Sổ Đơn Kính</span><nav class="tabs">${tabs}</nav><span class="grow"></span><button class="btn small" data-act="chia-se" title="Lấy link mở app trên điện thoại hoặc máy khác">📱 Mở trên máy khác</button>${S.canDangNhap ? '<button class="btn small ghost" data-act="dang-xuat">Đăng xuất</button>' : ''}</div></div>
     <main class="wrap">
       <div class="page-h">${tieuDe}<span class="grow"></span>
         <span class="saving ${S.trangThai}" aria-live="polite">${trangThai}</span></div>

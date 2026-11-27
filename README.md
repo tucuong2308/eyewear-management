@@ -15,7 +15,7 @@ npm run dev
 
 Mở http://localhost:8080. Dữ liệu lưu ở `data/so-don-kinh.db` (đã nằm trong `.gitignore`). Đổi cổng hoặc thư mục dữ liệu bằng biến môi trường `PORT` và `DATA_DIR`.
 
-**Đăng nhập:** lần chạy đầu tiên tạo `data/config.local.json` với tài khoản `cuahang` và một mật khẩu ngẫu nhiên, in ra màn hình. Đổi tên đăng nhập hoặc mật khẩu bằng cách sửa file đó rồi khởi động lại. File này không bao giờ được commit.
+**Đăng nhập:** chạy local (dev và exe trên Máy quầy) thì **không có đăng nhập**, mở là vào thẳng. Ai cùng mạng Wi-Fi với Máy quầy cũng mở được app, nên khách dùng Wi-Fi của cửa hàng phải ở mạng riêng (Wi-Fi khách). Muốn bật đăng nhập thì thêm vào `config.local.json` (nằm trong thư mục dữ liệu, không commit): `{ "taiKhoan": { "ten": "...", "matKhau": "..." } }` rồi khởi động lại.
 
 ## Đóng gói exe cho Máy quầy
 
@@ -29,7 +29,7 @@ Trên Máy quầy, chép `SoDonKinh.exe` vào một thư mục cố định (ví
 SoDonKinh.exe --cai-dat
 ```
 
-Lệnh này tạo lối tắt trong thư mục Startup để exe tự chạy cùng Windows, mở cổng 8080 trên Windows Firewall cho mạng riêng (Windows sẽ hỏi quyền quản trị), rồi mở app. Lần chạy đầu tiên mở Notepad với file cấu hình chứa mật khẩu ngẫu nhiên để đổi.
+Lệnh này tạo lối tắt trong thư mục Startup để exe tự chạy cùng Windows, mở cổng 8080 trên Windows Firewall cho mạng riêng (Windows sẽ hỏi quyền quản trị), rồi mở app.
 
 - Bấm đúp `SoDonKinh.exe`: mở app (máy chủ chạy ngầm nếu chưa chạy).
 - Biểu tượng ở khay hệ thống: bấm đúp hoặc "Mở Sổ Đơn Kính" để mở app, "Thoát" để tắt máy chủ.

@@ -9,10 +9,7 @@ const dataDir = process.env.DATA_DIR ?? join(process.cwd(), 'data');
 mkdirSync(dataDir, { recursive: true });
 
 const ch = docCauHinh(dataDir);
-if (ch.moiTao) {
-  console.log(`Đã tạo tài khoản mới trong ${ch.duongDan}`);
-  console.log(`  Tên đăng nhập: ${ch.taiKhoan.ten}  Mật khẩu: ${ch.taiKhoan.matKhau}`);
-}
+console.log(ch.taiKhoan ? `Đăng nhập: bật (tài khoản trong ${ch.duongDan})` : 'Đăng nhập: tắt (chạy local)');
 
 const server = await startServer({ dbPath: join(dataDir, 'so-don-kinh.db'), port, taiKhoan: ch.taiKhoan });
 console.log(`Sổ Đơn Kính đang chạy: http://localhost:${server.port}`);

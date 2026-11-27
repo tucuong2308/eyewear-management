@@ -65,7 +65,7 @@ describe('Đăng nhập', () => {
     bayGio += 29 * 864e5;
     await server.close();
     await startAt(join(dir, 'test.db'));
-    expect((await api('GET', '/api/phien')).body).toEqual({ ten: 'cuahang' });
+    expect((await api('GET', '/api/phien')).body).toEqual({ canDangNhap: true, ten: 'cuahang' });
     expect((await api('GET', '/api/don-kinh')).status).toBe(200);
   });
 
@@ -79,6 +79,21 @@ describe('Đăng nhập', () => {
     expect((await api('POST', '/api/dang-xuat')).status).toBe(200);
     cookie = truoc; // dù còn giữ cookie cũ
     expect((await api('GET', '/api/don-kinh')).status).toBe(401);
+  });
+});
+
+describe('Chạy local không cần đăng nhập', () => {
+  it('không khai báo tài khoản thì mọi API dùng được ngay, không cần phiên', async () => {
+    const khac = await startServer({ dbPath: join(dir, 'local.db'), port: 0, host: '127.0.0.1', today: () => HOM_NAY });
+    try {
+      const b = `http://127.0.0.1:${khac.port}`;
+      expect(await (await fetch(b + '/api/phien')).json()).toEqual({ canDangNhap: false, ten: null });
+      const r = await fetch(b + '/api/don-kinh', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ten: 'Không đăng nhập' }) });
+      expect(r.status).toBe(201);
+      expect((await (await fetch(b + `/api/don-kinh?ngayDat=${HOM_NAY}`)).json())).toHaveLength(1);
+    } finally {
+      await khac.close();
+    }
   });
 });
 
