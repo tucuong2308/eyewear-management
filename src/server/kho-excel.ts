@@ -2,17 +2,18 @@
 //
 // Dữ liệu nằm trong bộ nhớ; mỗi thay đổi ghi lại cả file (file tạm rồi đổi tên), tuần tự từng lần một.
 // File đang mở trong Excel thì Windows không cho đổi tên đè lên: thay đổi bị hoàn tác, báo LoiFileDangMo.
-// Nhân viên sửa thẳng trong Excel rồi Lưu: docLaiNeuDoi() thấy file đổi, đọc lại tab Đơn kính và
+// Nhân viên sửa thẳng trong Excel rồi Lưu: docLaiNeuDoi() thấy file đổi, đọc lại tab TỔNG (bố cục src/core/bo-cuc.ts) và
 // Danh sách, đưa các ô đổi vào hàng chờ đồng bộ. Các tab ẩn (hàng chờ, trạng thái, phiên) chỉ app ghi.
 import { randomUUID } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import ExcelJS from 'exceljs';
 import {
-  DANH_SACH_MAC_DINH, NHAN, NHAN_DANH_SACH, TRUONG_SUA_DUOC, donMoi, goiYLoaiTrong,
+  DANH_SACH_MAC_DINH, NHAN_DANH_SACH, TRUONG_SUA_DUOC, donMoi, goiYLoaiTrong,
   type DanhSach, type DonKinh, type LoaiDanhSach, type TruongSuaDuoc,
 } from '../core/don-kinh.js';
 import type { ThayDoiO, TruongDongBo } from '../core/dong-bo.js';
+import { COT_TONG, RONG_COT, donTuHang, oCua } from '../core/bo-cuc.js';
 
 /** Một ô đã sửa ở Máy quầy nhưng chưa đẩy lên Sheet; `luc` tăng dần để biết ô có bị sửa tiếp không. */
 export interface OChoDay extends ThayDoiO {
@@ -20,15 +21,11 @@ export interface OChoDay extends ThayDoiO {
 }
 
 export const TAB_FILE = {
-  don: 'Đơn kính', danhSach: 'Danh sách', choDay: '_Chờ đẩy', trangThai: '_Trạng thái', phien: '_Phiên',
+  don: 'TỔNG', danhSach: 'Danh sách', choDay: '_Chờ đẩy', trangThai: '_Trạng thái', phien: '_Phiên',
 } as const;
 
-const COT_THUNG_RAC = 'Thùng rác';
-const COT_MA = 'Mã đơn';
-const CO = 'Có';
 const GIU_SAO_LUU = 30;
 const MAU_SAO_LUU = /^So-don-kinh-\d{4}-\d{2}-\d{2}\.xlsx$/;
-const RONG: Partial<Record<string, number>> = { ten: 24, sdt: 13, mp: 18, mt: 18, loai: 22, ttTrong: 18, ttKinh: 17, diaChi: 28, ghiChu: 32 };
 
 export class LoiFileDangMo extends Error {
   constructor(readonly duongDan: string) {
@@ -292,7 +289,7 @@ export class KhoExcel {
   }
 
   /**
-   * Lấy tab Đơn kính và Danh sách của file làm chuẩn, ghi nhận các ô khác bộ nhớ vào hàng chờ đồng bộ.
+   * Lấy tab TỔNG và Danh sách của file làm chuẩn, ghi nhận các ô khác bộ nhớ vào hàng chờ đồng bộ.
    * `lanDau` (mở app): bộ nhớ còn trống, chỉ dòng mới chưa có Mã đơn mới vào hàng chờ.
    */
   private async apDungFile(wb: ExcelJS.Workbook, lanDau = false) {
@@ -413,23 +410,20 @@ function docChoDay(wb: ExcelJS.Workbook): OChoDay[] {
     .map((h) => ({ id: h[0]!, truong: h[1] as TruongDongBo, giaTri: h[2] ?? '', luc: Number(h[3]) || 0 }));
 }
 
-/** Các dòng của tab Đơn kính, theo tiêu đề cột (nhân viên có đổi thứ tự cột vẫn đọc đúng). */
-function docDongDon(wb: ExcelJS.Workbook): (Omit<DonKinh, 'id'> & { id: string })[] {
-  const ws = wb.getWorksheet(TAB_FILE.don);
+/** Các dòng của tab TỔNG (file cũ: "Đơn kính"), theo tiêu đề cột (đổi thứ tự cột vẫn đọc đúng). */
+function docDongDon(wb: ExcelJS.Workbook): DonKinh[] {
+  const ws = wb.getWorksheet(TAB_FILE.don) ?? wb.getWorksheet('Đơn kính');
   if (!ws) return [];
-  const tieuDe = new Map<string, number>();
-  ws.getRow(1).eachCell((c, i) => tieuDe.set(chu(c.value), i));
-  const truongCot = TRUONG_SUA_DUOC.map((f) => [f, tieuDe.get(NHAN[f])] as const);
-  const cotMa = tieuDe.get(COT_MA);
-  const cotRac = tieuDe.get(COT_THUNG_RAC);
-  const ds: (Omit<DonKinh, 'id'> & { id: string })[] = [];
+  const rong = ws.columnCount;
+  const tieuDe = Array.from({ length: rong }, (_, c) => chu(ws.getRow(1).getCell(c + 1).value));
+  const ds: DonKinh[] = [];
   ws.eachRow((r, i) => {
     if (i === 1) return;
-    const o = (c: number | undefined) => (c ? chu(r.getCell(c).value) : '');
-    const truong = Object.fromEntries(truongCot.map(([f, c]) => [f, f === 'ngayDat' || f === 'ngayHen' ? chuanNgay(o(c)) : o(c)])) as Record<TruongSuaDuoc, string>;
-    const rac = o(cotRac);
-    if (!Object.values(truong).some(Boolean) && !o(cotMa)) return; // dòng trống
-    ds.push({ ...truong, id: o(cotMa), thungRac: !!rac && rac.toLowerCase() !== 'không' });
+    const d = donTuHang(tieuDe, Array.from({ length: rong }, (_, c) => chu(r.getCell(c + 1).value)));
+    d.ngayDat = chuanNgay(d.ngayDat);
+    d.ngayHen = chuanNgay(d.ngayHen);
+    if (!d.id && !TRUONG_SUA_DUOC.some((f) => d[f])) return; // dòng trống
+    ds.push(d);
   });
   return ds;
 }
@@ -457,13 +451,14 @@ function taoFile(d: DuLieu): ExcelJS.Workbook {
   const chuoi = { numFmt: '@' };
 
   const ws = wb.addWorksheet(TAB_FILE.don, { views: [{ state: 'frozen', ySplit: 1 }] });
-  ws.columns = [
-    ...TRUONG_SUA_DUOC.map((f) => ({ header: NHAN[f], key: f, width: RONG[f] ?? 12, style: chuoi })),
-    { header: COT_THUNG_RAC, key: 'thungRac', width: 10, style: chuoi },
-    { header: COT_MA, key: 'id', width: 38, style: chuoi },
-  ];
-  ws.getRow(1).font = { bold: true };
-  for (const don of d.don) ws.addRow({ ...don, thungRac: don.thungRac ? CO : '' });
+  // Cùng bố cục với tab TỔNG của Google Sheet (giống file mẫu cũ); ô tick nguồn tròng ghi đúng/sai thật
+  ws.columns = COT_TONG.map((c) => ({ header: c.tieuDe, width: RONG_COT(c), style: c.loai === 'tick' ? {} : chuoi }));
+  const tieuDe = ws.getRow(1);
+  tieuDe.font = { bold: true };
+  tieuDe.alignment = { wrapText: true, vertical: 'middle' };
+  for (const don of d.don) {
+    ws.addRow(COT_TONG.map((c) => (c.loai === 'tick' ? oCua(c, don) === 'TRUE' : oCua(c, don))));
+  }
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: ws.columnCount } };
 
   const loai = Object.keys(NHAN_DANH_SACH) as LoaiDanhSach[];

@@ -21,23 +21,33 @@ class BangTinhGas implements BangTinh {
   coTab(ten: string) {
     return !!this.tab(ten);
   }
-  taoTab(ten: string, tieuDe: string[], an = false) {
+  taoTab(ten: string, tieuDe: string[], tuyChon: { an?: boolean; cotTick?: number[] } = {}) {
     const sh = this.ss.insertSheet(ten);
     // '@' = định dạng chữ: Sheets không tự đổi "2026-11-30" thành ngày hay "0912…" thành số
     sh.getRange(1, 1, sh.getMaxRows(), Math.max(tieuDe.length, sh.getMaxColumns())).setNumberFormat('@');
-    sh.getRange(1, 1, 1, tieuDe.length).setValues([tieuDe]).setFontWeight('bold');
+    sh.getRange(1, 1, 1, tieuDe.length).setValues([tieuDe]).setFontWeight('bold').setWrap(true);
+    for (const c of tuyChon.cotTick ?? []) sh.getRange(2, c + 1, sh.getMaxRows() - 1, 1).insertCheckboxes();
     sh.setFrozenRows(1);
-    if (an) sh.hideSheet();
+    if (tuyChon.an) sh.hideSheet();
   }
   doc(ten: string): string[][] {
     return this.tab(ten).getDataRange().getDisplayValues();
   }
   ghiVung(ten: string, hangDau: number, giaTri: string[][]) {
     if (!giaTri.length) return;
-    this.tab(ten).getRange(hangDau + 1, 1, giaTri.length, giaTri[0]!.length).setNumberFormat('@').setValues(giaTri);
+    const sh = this.tab(ten);
+    const vung = sh.getRange(hangDau + 1, 1, giaTri.length, giaTri[0]!.length);
+    vung.setNumberFormat('@');
+    // Ô tick của dòng mới (kể cả dòng vượt lưới ban đầu): chép kiểu kiểm tra dữ liệu của hàng 2
+    if (ten === TAB.don && hangDau > 1) sh.getRange(2, 1, 1, giaTri[0]!.length).copyTo(vung, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+    // Ô tick cần giá trị đúng/sai thật, không phải chữ "TRUE"/"FALSE"
+    vung.setValues(giaTri.map((h) => h.map((v) => (v === 'TRUE' ? true : v === 'FALSE' ? false : v))));
   }
   themHang(ten: string, hang: string[][]) {
     this.ghiVung(ten, this.tab(ten).getLastRow(), hang);
+  }
+  ghiCongThuc(ten: string, hang: number, cot: number, congThuc: string) {
+    this.tab(ten).getRange(hang + 1, cot + 1).setFormula(congThuc);
   }
 }
 
@@ -62,7 +72,7 @@ export function doGet() {
   return json({ ok: true, ten: 'Sổ Đơn Kính' });
 }
 
-/** Trigger đơn giản: ghi nhật ký khi ai đó sửa thẳng ô ở tab Đơn kính, để Máy quầy kéo về. */
+/** Trigger đơn giản: ghi nhật ký khi ai đó sửa thẳng ô ở tab TỔNG, để Máy quầy kéo về. */
 export function onEdit(e: any) {
   const r = e?.range;
   if (!r || r.getSheet().getName() !== TAB.don) return;
