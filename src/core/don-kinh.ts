@@ -83,6 +83,11 @@ export function mucGap(d: DonKinh, homNay: string): MucGap {
   return n < 0 ? 'qua' : n <= 1 ? 'gan' : n <= 5 ? 'sap' : '';
 }
 
+/** Mọi Kính hẹn; hẹn sớm nhất lên đầu. */
+export function kinhHen(ds: DonKinh[]): DonKinh[] {
+  return ds.filter(laKinhHen).sort((a, b) => a.ngayHen.localeCompare(b.ngayHen));
+}
+
 /** Kính hẹn có Ngày hẹn hôm nay hoặc đã qua; Ngày hẹn gần hôm nay nhất lên trước. */
 export function denHen(ds: DonKinh[], homNay: string): DonKinh[] {
   return ds
