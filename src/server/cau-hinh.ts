@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import type { TaiKhoan } from './dang-nhap.js';
+import type { CauHinhSheet } from './kenh-apps-script.js';
 
 /** Địa chỉ IPv4 trong mạng nội bộ, để điện thoại cùng Wi-Fi mở app. */
 export function diaChiMangNoiBo(): string[] {
@@ -18,6 +19,8 @@ export interface CauHinh {
   /** true khi vừa tạo tài khoản mới với mật khẩu ngẫu nhiên (cần báo cho chủ cửa hàng). */
   moiTao: boolean;
   duongDan: string;
+  /** Web App Apps Script của Google Sheet để đồng bộ; chưa có thì chỉ lưu trên máy. */
+  sheet?: CauHinhSheet;
 }
 
 /** Đọc cấu hình; lần đầu tạo tài khoản "cuahang" với mật khẩu ngẫu nhiên. */
@@ -29,6 +32,6 @@ export function docCauHinh(dataDir: string): CauHinh {
     writeFileSync(duongDan, JSON.stringify(moi, null, 2) + '\n', 'utf8');
     moiTao = true;
   }
-  const { taiKhoan } = JSON.parse(readFileSync(duongDan, 'utf8')) as { taiKhoan: TaiKhoan };
-  return { taiKhoan, moiTao, duongDan };
+  const { taiKhoan, sheet } = JSON.parse(readFileSync(duongDan, 'utf8')) as { taiKhoan: TaiKhoan; sheet?: CauHinhSheet };
+  return { taiKhoan, moiTao, duongDan, sheet: sheet?.url && sheet.khoa ? sheet : undefined };
 }

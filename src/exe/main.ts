@@ -10,6 +10,7 @@ import { appendFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { startServer } from '../server/app.js';
 import { diaChiMangNoiBo, docCauHinh } from '../server/cau-hinh.js';
+import { KenhAppsScript } from '../server/kenh-apps-script.js';
 
 const TEN = 'Sổ Đơn Kính';
 const CONG = Number(process.env.PORT ?? 8080);
@@ -90,7 +91,10 @@ async function chayNen() {
     port: CONG,
     taiKhoan: ch.taiKhoan,
     docTepGiaoDien: docTepNhung(),
+    kenhSheet: ch.sheet ? new KenhAppsScript(ch.sheet) : undefined,
+    ghiLog,
   });
+  ghiLog(ch.sheet ? 'Đồng bộ Google Sheet: bật (30 giây một lần)' : 'Đồng bộ Google Sheet: chưa cấu hình (thêm "sheet": { "url", "khoa" } vào config.local.json)');
   ghiLog(`Máy chủ chạy tại ${URL_APP}; mạng nội bộ: ${diaChiMangNoiBo().map((a) => `http://${a}:${CONG}`).join(', ')}`);
   if (ch.moiTao) {
     // Lần đầu: mở file cấu hình để chủ cửa hàng thấy và đổi mật khẩu ngẫu nhiên.
