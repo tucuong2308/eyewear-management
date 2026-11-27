@@ -6,16 +6,13 @@
 //   "Danh sách"  mỗi cột một danh sách lựa chọn (Hãng, Nguồn tròng, …, Nhân viên).
 //   "Cài đặt"    cột A tên, cột B giá trị: Tên đăng nhập, Mật khẩu, Khóa Máy quầy.
 //   "_Nhật ký"   (ẩn) mỗi ô thay đổi một dòng: Mã đơn | Trường | Giá trị | Lúc. Số dòng = mốc đồng bộ.
-import { DANH_SACH_MAC_DINH, NHAN, TRUONG_SUA_DUOC } from '../core/don-kinh.js';
+import { DANH_SACH_MAC_DINH, NHAN, NHAN_DANH_SACH as TIEU_DE_DANH_SACH, TRUONG_SUA_DUOC } from '../core/don-kinh.js';
 import { TRUONG_DONG_BO, laTruongDongBo, type ThayDoiO, type TruongDongBo } from '../core/dong-bo.js';
 
 export const TAB = { don: 'Đơn kính', danhSach: 'Danh sách', caiDat: 'Cài đặt', nhatKy: '_Nhật ký' } as const;
 
 const TIEU_DE_DON = ['Mã đơn', ...TRUONG_SUA_DUOC.map((f) => NHAN[f]), 'Thùng rác'];
 const TRUONG_THEO_COT: (TruongDongBo | 'id')[] = ['id', ...TRUONG_DONG_BO];
-const TIEU_DE_DANH_SACH: Record<keyof typeof DANH_SACH_MAC_DINH, string> = {
-  hang: 'Hãng', nguon: 'Nguồn tròng', ttTrong: 'Tình trạng tròng', ttKinh: 'Tình trạng kính', phanHoi: 'Phản hồi', nhanVien: 'Nhân viên',
-};
 export const CAI_DAT = { ten: 'Tên đăng nhập', matKhau: 'Mật khẩu', khoa: 'Khóa Máy quầy' } as const;
 
 /** Bảng tính tối thiểu mà phần xử lý cần. Hàng/cột đánh số từ 0; mọi giá trị là chữ. */

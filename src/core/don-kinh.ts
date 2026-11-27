@@ -150,6 +150,10 @@ export const DANH_SACH_MAC_DINH = {
 } satisfies Record<string, string[]>;
 
 export type LoaiDanhSach = keyof typeof DANH_SACH_MAC_DINH;
+/** Tiêu đề cột của từng danh sách trong tab "Danh sách" (file Excel của Máy quầy và Google Sheet). */
+export const NHAN_DANH_SACH: Record<LoaiDanhSach, string> = {
+  hang: 'Hãng', nguon: 'Nguồn tròng', ttTrong: 'Tình trạng tròng', ttKinh: 'Tình trạng kính', phanHoi: 'Phản hồi', nhanVien: 'Nhân viên',
+};
 export type DanhSach = Record<LoaiDanhSach, string[]>;
 
 /** Trường nào chọn từ danh sách nào. */

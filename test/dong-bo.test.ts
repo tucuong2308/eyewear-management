@@ -16,7 +16,7 @@ let sheet: SheetGia;
 async function startAt() {
   // chuKyDongBo: 0 → không tự chạy theo giờ; test gọi server.dongBo() khi cần
   server = await startServer({
-    dbPath: join(dir, 'test.db'), port: 0, host: '127.0.0.1', today: () => '2026-11-27',
+    fileDuLieu: join(dir, 'So-don-kinh.xlsx'), port: 0, host: '127.0.0.1', today: () => '2026-11-27',
     taiKhoan: TAI_KHOAN, kenhSheet: sheet, chuKyDongBo: 0,
   });
   base = `http://127.0.0.1:${server.port}`;

@@ -86,13 +86,14 @@ $icon.Dispose()
 async function chayNen() {
   if (await dangChay()) return; // chỉ một máy chủ tại một thời điểm
   const ch = docCauHinh(DATA_DIR);
+  const thuMucSo = process.env.THU_MUC_EXCEL ?? join(thuMucDesktop(), 'Sổ Đơn Kính');
   const server = await startServer({
-    dbPath: join(DATA_DIR, 'so-don-kinh.db'),
+    // File Excel trên Desktop là dữ liệu chính (ADR 0004); THU_MUC_EXCEL chỉ dùng khi thử nghiệm
+    fileDuLieu: join(thuMucSo, 'So-don-kinh.xlsx'),
+    thuMucSaoLuu: join(thuMucSo, 'Sao lưu'),
     port: CONG,
     taiKhoan: ch.taiKhoan,
     docTepGiaoDien: docTepNhung(),
-    // File Excel cho nhân viên dễ tìm; THU_MUC_EXCEL chỉ dùng khi thử nghiệm
-    thuMucExcel: process.env.THU_MUC_EXCEL ?? join(thuMucDesktop(), 'Sổ Đơn Kính'),
     kenhSheet: ch.sheet ? new KenhAppsScript(ch.sheet) : undefined,
     ghiLog,
   });

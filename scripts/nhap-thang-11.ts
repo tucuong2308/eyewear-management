@@ -1,25 +1,26 @@
-// Chuyển Đơn kính tháng 11/2026 từ file Excel (tải về từ Google Sheets cũ) vào dữ liệu của Máy quầy.
-// Các đơn được ghi "chờ đẩy" nên tự lên Google Sheet mới khi đồng bộ được bật.
+// Chuyển Đơn kính tháng 11/2026 từ file Excel (tải về từ Google Sheets cũ) vào file dữ liệu của Máy quầy
+// (ADR 0004: Desktop\Sổ Đơn Kính\So-don-kinh.xlsx). Các đơn được ghi "chờ đẩy" nên tự lên Google Sheet mới.
 //
-//   npm run nhap-thang-11 -- <file.xlsx> [--data <thư mục dữ liệu>] [--thu]
+//   npm run nhap-thang-11 -- <file.xlsx> [--file <So-don-kinh.xlsx>] [--thu]
 //
-//   --data  thư mục chứa so-don-kinh.db (mặc định: ./data; exe dùng %LOCALAPPDATA%\SoDonKinh)
+//   --file  file dữ liệu để nhập vào (mặc định: Desktop\Sổ Đơn Kính\So-don-kinh.xlsx). Đóng Excel trước khi chạy.
 //   --thu   chỉ đọc và báo cáo, không ghi gì
 //
 // Dữ liệu Bệnh nhân thật: chỉ xử lý trên máy, không commit file Excel hay CSDL. Báo cáo chỉ in số đếm.
 import { createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import ExcelJS from 'exceljs';
 import { chuyenDong, type GiaTriO } from '../src/core/nhap-thang-11.js';
-import { KhoDonKinh } from '../src/server/kho.js';
+import type { DonKinh } from '../src/core/don-kinh.js';
+import { KhoExcel } from '../src/server/kho-excel.js';
+import { thuMucDesktop } from '../src/server/cau-hinh.js';
 
 const args = process.argv.slice(2);
-const file = args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1] !== '--data');
-const dataDir = resolve(args.includes('--data') ? args[args.indexOf('--data') + 1]! : join(process.cwd(), 'data'));
+const file = args.find((a) => !a.startsWith('--') && args[args.indexOf(a) - 1] !== '--file');
+const fileDuLieu = resolve(args.includes('--file') ? args[args.indexOf('--file') + 1]! : join(thuMucDesktop(), 'Sổ Đơn Kính', 'So-don-kinh.xlsx'));
 const chiThu = args.includes('--thu');
 if (!file) {
-  console.error('Cách dùng: npx tsx scripts/nhap-thang-11.ts <file.xlsx> [--data <thư mục>] [--thu]');
+  console.error('Cách dùng: npm run nhap-thang-11 -- <file.xlsx> [--file <So-don-kinh.xlsx>] [--thu]');
   process.exit(1);
 }
 
@@ -56,9 +57,8 @@ if (!tong) {
   process.exit(1);
 }
 
-mkdirSync(dataDir, { recursive: true });
-const kho = chiThu ? null : new KhoDonKinh(join(dataDir, 'so-don-kinh.db'));
 const dem = { dong: 0, moi: 0, daCo: 0 };
+const donNhap: DonKinh[] = [];
 const canhBao = new Map<string, number>();
 const nhanVien = new Set<string>();
 
@@ -77,15 +77,17 @@ tong.eachRow((row, i) => {
     const loai = c.replace(/:.*/, '');
     canhBao.set(loai, (canhBao.get(loai) ?? 0) + 1);
   }
-  if (kho) (kho.nhapDon(kq.don) ? dem.moi++ : dem.daCo++);
+  donNhap.push(kq.don);
 });
-if (kho) {
-  for (const n of nhanVien) kho.themVaoDanhSach('nhanVien', n);
-  kho.dong();
+if (!chiThu) {
+  const kho = await KhoExcel.mo(fileDuLieu);
+  Object.assign(dem, await kho.nhapNhieu(donNhap));
+  for (const n of nhanVien) await kho.themVaoDanhSach('nhanVien', n);
+  await kho.dong();
 }
 
 console.log(`Đọc ${dem.dong} Đơn kính từ sheet TỔNG.`);
 if (chiThu) console.log('Chạy thử (--thu): chưa ghi gì.');
-else console.log(`Nhập mới ${dem.moi}, bỏ qua ${dem.daCo} đơn đã có. Thêm ${nhanVien.size} tên vào danh sách Nhân viên.`);
+else console.log(`Nhập vào ${fileDuLieu}: mới ${dem.moi}, bỏ qua ${dem.daCo} đơn đã có. Thêm ${nhanVien.size} tên vào danh sách Nhân viên.`);
 for (const [loai, n] of canhBao) console.log(`  Cần kiểm tra: ${loai} (${n} đơn)`);
 console.log('Đơn có nguồn tròng không rõ được ghi "[KIỂM TRA NGUỒN TRÒNG]" ở đầu Ghi chú; tìm ở trang Tổng.');

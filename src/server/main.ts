@@ -15,11 +15,11 @@ if (ch.moiTao) {
 }
 
 const server = await startServer({
-  dbPath: join(dataDir, 'so-don-kinh.db'),
+  // chế độ dev: file Excel nằm trong thư mục dữ liệu, không làm rối Desktop của máy dev
+  fileDuLieu: join(dataDir, 'So-don-kinh.xlsx'),
+  thuMucSaoLuu: join(dataDir, 'Sao lưu'),
   port,
   taiKhoan: ch.taiKhoan,
-  // chế độ dev: Excel vào thư mục dữ liệu, không làm rối Desktop của máy dev
-  thuMucExcel: process.env.THU_MUC_EXCEL ?? join(dataDir, 'excel'),
   ghiLog: (s) => console.log(s),
 });
 console.log(`Sổ Đơn Kính đang chạy: http://localhost:${server.port}`);
