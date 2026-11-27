@@ -1,0 +1,639 @@
+<title>Sổ Đơn Kính (bản thử)</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<!--
+  PROTOTYPE — vứt đi sau khi chốt. Câu hỏi: flow (Hôm nay → Kính hẹn → Hoàn thành, Sự cố, Thùng rác, Lịch sử)
+  và giao diện nào hợp với cửa hàng. Ba kiểu giao diện, đổi bằng #a / #b / #c hoặc thanh nổi dưới đáy.
+  Dữ liệu giả, chỉ nằm trong bộ nhớ; tải lại trang là về dữ liệu mẫu.
+-->
+<style>
+/* Layout: app shell; nav changes per variant (top tabs / sidebar / bottom tabs), content is one list of Đơn kính filtered per page. */
+:root{
+  --bg:#f4f7f8; --surface:#ffffff; --fg:#132029; --muted:#5a6a76; --line:#dbe3e8;
+  --accent:#0d6b88; --accent-fg:#ffffff; --accent-weak:#e2f0f4;
+  --red:#b9342a; --red-bg:#fbe8e6; --amber:#9a5c00; --amber-bg:#fff1d2; --green:#1d7448; --green-bg:#e0f3e8;
+  --pill:#132029; --pill-fg:#f4f7f8;
+  --f-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e151b; --surface:#152029; --fg:#e4ecf1; --muted:#93a3af; --line:#24333f;
+  --accent:#4cb1cf; --accent-fg:#0b1a21; --accent-weak:#12303c;
+  --red:#ff8c80; --red-bg:#3b1c19; --amber:#f0b44a; --amber-bg:#382a10; --green:#6ccd95; --green-bg:#132e1e;
+  --pill:#e4ecf1; --pill-fg:#0e151b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e151b; --surface:#152029; --fg:#e4ecf1; --muted:#93a3af; --line:#24333f;
+  --accent:#4cb1cf; --accent-fg:#0b1a21; --accent-weak:#12303c;
+  --red:#ff8c80; --red-bg:#3b1c19; --amber:#f0b44a; --amber-bg:#382a10; --green:#6ccd95; --green-bg:#132e1e;
+  --pill:#e4ecf1; --pill-fg:#0e151b; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* shared bits */
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.small{padding:3px 9px;font-size:13px}
+.btn.done{background:var(--green-bg);color:var(--green);border-color:transparent}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;background:var(--accent-weak);color:var(--accent)}
+.chip.qua{background:var(--red-bg);color:var(--red)}
+.chip.gan{background:var(--amber-bg);color:var(--amber)}
+.chip.sap{background:var(--green-bg);color:var(--green)}
+.chip.suco{background:var(--red-bg);color:var(--red)}
+.chip.xong{background:var(--green-bg);color:var(--green)}
+.chip.plain{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.flash{margin-block:12px;padding:10px 14px;border-radius:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.flash.err{background:var(--red-bg);color:var(--red)}
+.flash.ok{background:var(--green-bg);color:var(--green)}
+.flash .btn{margin-left:auto}
+.saving{font-size:12px;color:var(--muted);white-space:nowrap}
+.saving.ok{color:var(--green)}
+.page-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-block:18px 6px}
+.page-h h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.page-h .sub{color:var(--muted)}
+.page-h .grow{flex:1}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;margin-block:12px}
+input.cell,select.cell{width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:6px;min-width:0}
+input.cell:hover,select.cell:hover{border-color:var(--line)}
+input.cell:focus,select.cell:focus{border-color:var(--accent);background:var(--surface);outline:none}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.02em}
+.field input,.field select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;width:100%}
+.field input:focus,.field select:focus{border-color:var(--accent);outline:none}
+.field.req label::after{content:" *";color:var(--red)}
+.field.missing input,.field.missing select{border-color:var(--red);background:var(--red-bg)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-weight:500}
+.seg button.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.seg button.on.suco{background:var(--red);border-color:var(--red);color:var(--surface)}
+
+/* login */
+.login{min-height:100%;display:grid;place-items:center;padding-block:32px}
+.login form{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px;width:min(380px,100%);display:flex;flex-direction:column;gap:14px}
+.login h1{margin:0;font-size:24px}
+.login .hint{font-size:13px;color:var(--muted);background:var(--accent-weak);padding:8px 10px;border-radius:8px}
+
+/* calendar (shared) */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-block:10px 16px;max-width:640px}
+.cal .dow{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center}
+.cal button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 4px;min-height:54px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.cal button .d{font-weight:600}
+.cal button .n{font-size:11px;color:var(--muted)}
+.cal button.has .n{color:var(--accent);font-weight:600}
+.cal button.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-weak)}
+.cal button.today .d{color:var(--accent)}
+.cal button:disabled{visibility:hidden}
+
+/* ===== Variant A: bảng tính ===== */
+.A-top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.A-top .row{display:flex;align-items:center;gap:16px;padding-block:10px}
+.A-brand{font-weight:700;letter-spacing:-.01em}
+.A-tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.A-tabs button{border:0;background:transparent;padding:10px 12px;border-bottom:2px solid transparent;font-weight:500;color:var(--muted);white-space:nowrap}
+.A-tabs button.on{color:var(--fg);border-bottom-color:var(--accent)}
+.A-tabs .count{font-size:11px;background:var(--accent-weak);color:var(--accent);border-radius:999px;padding:1px 6px;margin-left:4px}
+.A-tabs .count.red{background:var(--red-bg);color:var(--red)}
+.grid-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-block:10px 120px}
+table.grid{border-collapse:collapse;width:max-content;min-width:100%}
+table.grid th{position:sticky;top:0;background:var(--surface);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:600}
+table.grid td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:2px;vertical-align:middle}
+table.grid td:last-child{border-right:0}
+table.grid tr.new td{background:var(--accent-weak)}
+table.grid tr.new input::placeholder{color:var(--accent)}
+table.grid tr.u-qua td.hen{background:var(--red-bg)}
+table.grid tr.u-gan td.hen{background:var(--amber-bg)}
+table.grid tr.u-sap td.hen{background:var(--green-bg)}
+table.grid td.act{white-space:nowrap;padding:2px 6px}
+table.grid tr.flashrow td{background:var(--red-bg)}
+.w-ten{width:170px}.w-sm{width:64px}.w-rx{width:130px}.w-md{width:120px}.w-lg{width:190px}.w-date{width:136px}
+
+/* ===== Variant B: danh sách + form ===== */
+.B{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100%}
+.B-side{background:var(--surface);border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:4px}
+.B-side .brand{font-weight:700;padding:4px 10px 14px}
+.B-side button{display:flex;justify-content:space-between;align-items:center;text-align:left;border:0;background:transparent;border-radius:8px;padding:9px 10px;font-weight:500;color:var(--muted)}
+.B-side button.on{background:var(--accent-weak);color:var(--accent)}
+.B-side .sp{flex:1}
+.B-main{min-width:0;padding-bottom:120px}
+.B-list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-block:10px}
+.B-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.6fr) minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;width:100%}
+.B-row:last-child{border-bottom:0}
+.B-row:hover{background:var(--accent-weak)}
+.B-row .name{font-weight:600}
+.B-row .meta{font-size:12px;color:var(--muted)}
+.B-row .chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:760px){
+  .B{grid-template-columns:minmax(0,1fr)}
+  .B-side{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px 12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+  .B-side .brand,.B-side .sp{display:none}
+  .B-side button{white-space:nowrap}
+  .B-row{grid-template-columns:minmax(0,1fr) auto}
+  .B-row .rx,.B-row .tro{display:none}
+}
+
+/* drawer (B & C) */
+.scrim{position:fixed;inset:0;background:rgba(10,20,28,.38);z-index:30}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--bg);z-index:31;display:flex;flex-direction:column;border-left:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.drawer header{display:flex;align-items:center;gap:10px;padding:14px max(16px,env(safe-area-inset-right,0px)) 14px 18px;border-bottom:1px solid var(--line);background:var(--surface)}
+.drawer header h2{margin:0;font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drawer .body{overflow-y:auto;padding:6px 18px 24px;flex:1}
+.drawer section{margin-block:16px}
+.drawer section h3{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 8px;font-weight:600}
+.drawer .g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.drawer .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.drawer footer{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--surface)}
+.drawer footer .sp{flex:1}
+@media (max-width:480px){.drawer .g3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ===== Variant C: bảng tiến độ ===== */
+.C-top{display:flex;align-items:center;gap:12px;padding-block:12px;border-bottom:1px solid var(--line);background:var(--surface)}
+.C-top .brand{font-weight:700}
+.C-top .grow{flex:1}
+.C-main{padding-bottom:150px}
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);gap:12px;overflow-x:auto;padding-block:10px 4px}
+.lane{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.lane h3{margin:2px 4px 4px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.lane.qua h3{color:var(--red)}.lane.gan h3{color:var(--amber)}.lane.sap h3{color:var(--green)}
+.card{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);text-align:left;display:flex;flex-direction:column;gap:6px;width:100%}
+.card:hover{border-color:var(--accent)}
+.card .name{font-weight:600}
+.card .rx{font-size:12px}
+.card .foot{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.card .foot .sp{flex:1}
+.lane .none{font-size:12px;color:var(--muted);padding:6px}
+.C-tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:4px max(8px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.C-tabs button{border:0;background:transparent;padding:8px 2px;font-size:12px;font-weight:500;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:8px}
+.C-tabs button.on{color:var(--accent);background:var(--accent-weak)}
+.C-tabs .n{font-family:var(--f-mono);font-size:13px;font-weight:600}
+.fab{position:fixed;right:max(18px,calc(env(safe-area-inset-right,0px) + 18px));bottom:calc(132px + env(safe-area-inset-bottom,0px));z-index:21;border-radius:999px;padding:12px 18px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+
+/* prototype chrome */
+.proto{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:4px;background:var(--pill);color:var(--pill-fg);border-radius:999px;padding:4px;box-shadow:0 8px 28px rgba(0,0,0,.28);font-size:13px;max-width:calc(100% - 24px)}
+.proto.liftC{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+.proto button{border:0;background:transparent;color:inherit;border-radius:999px;padding:7px 11px;font-weight:600}
+.proto button:hover{background:rgba(127,127,127,.25)}
+.proto .lbl{padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proto .sep{width:1px;height:18px;background:currentColor;opacity:.3}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--surface);border-top:2px solid var(--accent);max-height:46vh;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)}
+.sheet header{display:flex;align-items:center;gap:10px;padding-block:10px}
+.sheet header b{flex:1}
+.sheet .scroll{overflow:auto;padding-bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+.sheet table{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
+.sheet th,.sheet td{border:1px solid var(--line);padding:3px 8px;text-align:left;white-space:nowrap}
+.sheet th{background:var(--bg);font-weight:600;color:var(--muted)}
+.sheet tr.hot td{background:var(--amber-bg)}
+.sheet tr.gone td{color:var(--muted);text-decoration:line-through}
+@media (prefers-reduced-motion:no-preference){.sheet tr.hot td{transition:background .6s}}
+</style>
+
+<div id="app"></div>
+<datalist id="dl-loai"></datalist>
+
+<script>
+/* ================= LOGIC (thuần, không đụng DOM) ================= */
+const Logic = (() => {
+  const REQUIRED = ['ten','tuoi','sdt','mp','mt','hang','loai','nguon','ngayDat','ngayHen','ttTrong','tuVan','cat','phanHoi'];
+  const LABEL = {ten:'Tên',tuoi:'Tuổi',sdt:'SĐT',mp:'MP',mt:'MT',add:'ADD',hang:'Hãng',loai:'Loại tròng',nguon:'Nguồn tròng',ngayDat:'Ngày đặt',ngayHen:'Ngày hẹn',ttTrong:'Tình trạng tròng',ttKinh:'Tình trạng kính',tuVan:'Người tư vấn',cat:'Người cắt',phanHoi:'Phản hồi',shipTime:'Thời gian ship',diaChi:'Địa chỉ ship',ghiChu:'Ghi chú'};
+  const DONE = 'Đã trả';
+  const blank = v => v === undefined || v === null || String(v).trim() === '';
+  const isDone = o => o.ttKinh === DONE;
+  const isKinhHen = o => !o.trashed && !blank(o.ngayHen) && !isDone(o);
+  const isSuCo = o => !o.trashed && o.phanHoi === 'Sự cố';
+  const missing = o => REQUIRED.filter(k => blank(o[k]));
+  const diffDays = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 864e5);
+  const urgency = (o, today) => {
+    if (blank(o.ngayHen)) return '';
+    const d = diffDays(o.ngayHen, today);
+    return d < 0 ? 'qua' : d <= 1 ? 'gan' : d <= 5 ? 'sap' : '';
+  };
+  function complete(o) {
+    const m = missing(o);
+    if (m.length) return { ok: false, missing: m };
+    return { ok: true, order: { ...o, ttKinh: DONE } };
+  }
+  const byDay = (orders, day) => orders.filter(o => !o.trashed && o.ngayDat === day);
+  const kinhHen = (orders, today) => orders.filter(isKinhHen).sort((a, b) => a.ngayHen.localeCompare(b.ngayHen));
+  const suCo = orders => orders.filter(isSuCo);
+  const trash = orders => orders.filter(o => o.trashed);
+  const all = (orders, q, month) => {
+    const s = (q || '').trim().toLowerCase();
+    return orders.filter(o => !o.trashed && (!month || o.ngayDat.startsWith(month)) &&
+      (!s || (o.ten || '').toLowerCase().includes(s) || (o.sdt || '').includes(s)))
+      .sort((a, b) => b.ngayDat.localeCompare(a.ngayDat));
+  };
+  return { REQUIRED, LABEL, DONE, isDone, isKinhHen, isSuCo, missing, urgency, complete, byDay, kinhHen, suCo, trash, all, diffDays };
+})();
+
+/* ================= DỮ LIỆU MẪU (giả) ================= */
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return iso(d); };
+const TODAY = iso(new Date());
+const fmt = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
+
+const LISTS = {
+  hang: ['ESSILOR', 'ZEISS', 'FANO', 'HOYA', 'CHEMI', 'IO', 'KIỂM SOÁT CẬN THỊ'],
+  nguon: ['Kính sẵn', 'Ký gửi', 'Kính đặt', 'Đặt đánh'],
+  ttTrong: ['Chưa đặt', 'Đã đặt – đang giao', 'Đã có'],
+  ttKinh: ['Chưa cắt', 'Đã cắt – chưa trả', 'Ship', 'Đã trả'],
+  phanHoi: ['Tốt', 'Không tốt', 'Sự cố', 'Khác'],
+  nhanVien: ['Lan', 'Minh', 'Hùng', 'Thảo', 'Dũng', 'Trang'],
+};
+function seed() {
+  let r = 7; const rnd = n => { r = (r * 9301 + 49297) % 233280; return Math.floor(r / 233280 * n); };
+  const ho = ['NGUYỄN', 'TRẦN', 'LÊ', 'PHẠM', 'HOÀNG', 'VŨ', 'ĐẶNG', 'BÙI', 'ĐỖ', 'NGÔ'];
+  const dem = ['VĂN', 'THỊ', 'MINH', 'NGỌC', 'ĐỨC', 'THU', 'QUỐC', 'HẢI'];
+  const ten = ['AN', 'BÌNH', 'CHI', 'DUNG', 'GIANG', 'HÀ', 'KHÁNH', 'LINH', 'MAI', 'NAM', 'PHÚC', 'QUÂN', 'SƠN', 'TÚ', 'VY'];
+  const loai = ['FANO 1.61', 'FANO 1.56', 'ESSILOR 1.56 ELEMENT', 'ZEISS 1.60 CLEAR VIEW', '1.67 BLUE UV', 'NATURAL LOOK 1.60'];
+  const rx = () => `${['-', ''][rnd(2)]}${rnd(6)}.${['00', '25', '50', '75'][rnd(4)]}/-${rnd(3)}.${['00', '25', '50', '75'][rnd(4)]}*${rnd(18) * 10}`;
+  const out = [];
+  for (let i = 0; i < 46; i++) {
+    const ago = i < 4 ? 0 : 1 + rnd(24);
+    const ngayDat = addDays(TODAY, -ago);
+    const hasHen = rnd(10) < 5;
+    const ngayHen = hasHen ? addDays(ngayDat, 1 + rnd(8)) : '';
+    let ttKinh = ago > 6 ? 'Đã trả' : ['Chưa cắt', 'Đã cắt – chưa trả', 'Ship', 'Đã trả'][rnd(4)];
+    if (hasHen && ago <= 8 && rnd(3) > 0) ttKinh = ['Chưa cắt', 'Đã cắt – chưa trả'][rnd(2)];
+    out.push({
+      id: 'D' + String(1001 + i),
+      ten: `${ho[rnd(10)]} ${dem[rnd(8)]} ${ten[rnd(15)]}`,
+      tuoi: rnd(5) ? String(6 + rnd(60)) : '',
+      sdt: rnd(3) ? '09' + String(10000000 + rnd(89999999)).slice(0, 8) : '',
+      mp: rx(), mt: rx(), add: rnd(6) ? '' : '1.50',
+      hang: LISTS.hang[rnd(4)], loai: loai[rnd(6)], nguon: LISTS.nguon[rnd(4)],
+      ngayDat, ngayHen,
+      ttTrong: ttKinh === 'Chưa cắt' && rnd(2) ? 'Đã đặt – đang giao' : 'Đã có',
+      ttKinh,
+      tuVan: LISTS.nhanVien[rnd(6)], cat: ttKinh === 'Chưa cắt' ? '' : LISTS.nhanVien[rnd(6)],
+      phanHoi: ttKinh === 'Đã trả' ? (rnd(8) ? 'Tốt' : 'Sự cố') : '',
+      shipTime: ttKinh === 'Ship' ? 'chiều ' + fmt(addDays(ngayDat, 2)) : '', diaChi: '',
+      ghiChu: rnd(7) ? '' : ['Đợi mang gọng qua', 'Chỉ cắt mắt phải', 'Cắt xong gọi khách qua lấy'][rnd(3)],
+      trashed: false,
+    });
+  }
+  // ví dụ chắc chắn có: một đơn quá hẹn, một đơn hẹn mai, một đơn đang bị sự cố, một đơn trong thùng rác
+  Object.assign(out[5], { ngayHen: addDays(TODAY, -2), ttKinh: 'Đã cắt – chưa trả', phanHoi: '' });
+  Object.assign(out[6], { ngayHen: addDays(TODAY, 1), ttKinh: 'Chưa cắt', cat: '' });
+  Object.assign(out[7], { ngayHen: addDays(TODAY, 4), ttKinh: 'Đã cắt – chưa trả', sdt: '' });
+  Object.assign(out[9], { phanHoi: 'Sự cố', ttKinh: 'Đã trả', ghiChu: 'Cắt sai độ MP, đã đặt lại tròng' });
+  Object.assign(out[12], { trashed: true, ghiChu: 'Nhập trùng' });
+  Object.assign(out[1], { ngayHen: addDays(TODAY, 3), ttKinh: 'Chưa cắt', ttTrong: 'Đã đặt – đang giao', cat: '', phanHoi: '' });
+  return out;
+}
+
+/* ================= TRẠNG THÁI TRANG ================= */
+const VARIANTS = [['a', 'A · Bảng tính'], ['b', 'B · Danh sách + form'], ['c', 'C · Bảng tiến độ']];
+const PAGES = [['today', 'Hôm nay'], ['history', 'Lịch sử'], ['hen', 'Kính hẹn'], ['suco', 'Sự cố'], ['tong', 'Tổng'], ['trash', 'Thùng rác']];
+const S = {
+  orders: seed(), lists: JSON.parse(JSON.stringify(LISTS)),
+  loggedIn: false, loginErr: '', page: 'today', variant: 'a',
+  histDay: TODAY, histMonth: TODAY.slice(0, 7), q: '', month: TODAY.slice(0, 7),
+  openId: null, other: null, flash: null, missingFor: null, hot: null, sheetOpen: false,
+  saving: '', nextId: 2001, focusNext: null,
+};
+const get = id => S.orders.find(o => o.id === id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let saveT;
+function touch(id) {
+  S.hot = id; S.saving = 'Đang lưu…';
+  clearTimeout(saveT);
+  saveT = setTimeout(() => { S.saving = 'Đã lưu vào Sheet ✓'; render(); }, 450);
+}
+function setField(id, f, v) {
+  const o = get(id); if (!o) return;
+  o[f] = v; touch(id);
+  if (S.missingFor === id && Logic.missing(o).length === 0) S.missingFor = null;
+}
+function newOrder(ten) {
+  const day = S.page === 'history' ? S.histDay : TODAY;
+  const o = { id: 'D' + (S.nextId++), ten: ten || '', tuoi: '', sdt: '', mp: '', mt: '', add: '', hang: '', loai: '', nguon: '',
+    ngayDat: day, ngayHen: '', ttTrong: 'Chưa đặt', ttKinh: 'Chưa cắt', tuVan: '', cat: '', phanHoi: '', shipTime: '', diaChi: '', ghiChu: '', trashed: false };
+  S.orders.push(o); touch(o.id); return o;
+}
+function doComplete(id) {
+  const o = get(id); const r = Logic.complete(o);
+  if (!r.ok) {
+    S.missingFor = id;
+    S.flash = { kind: 'err', text: `Chưa hoàn thành được “${o.ten || 'đơn chưa có tên'}”. Còn thiếu: ${r.missing.map(k => Logic.LABEL[k]).join(', ')}.`, id };
+    if (S.variant !== 'a') S.openId = id;
+    return;
+  }
+  const prev = o.ttKinh; Object.assign(o, r.order); touch(id); S.missingFor = null;
+  S.flash = { kind: 'ok', text: `Đã hoàn thành “${o.ten}”: Tình trạng kính = Đã trả, đơn rời khỏi Kính hẹn.`, undo: () => { o.ttKinh = prev; touch(id); } };
+}
+function doTrash(id) {
+  const o = get(id); o.trashed = true; touch(id); S.openId = null;
+  S.flash = { kind: 'ok', text: `Đã đưa “${o.ten || 'đơn trống'}” vào Thùng rác.`, undo: () => { o.trashed = false; touch(id); } };
+}
+
+/* ================= Ô NHẬP DÙNG CHUNG ================= */
+const RX = new Set(['mp', 'mt', 'add']);
+function control(o, f, mode) { // mode: 'cell' (bảng) | 'field' (form)
+  const k = `${o.id}:${f}`, v = o[f] ?? '', cls = mode === 'cell' ? 'cell' : '';
+  const attrs = `data-id="${o.id}" data-f="${f}" data-k="${k}" id="in-${k.replace(':', '-')}" aria-label="${Logic.LABEL[f]}"`;
+  const listName = { hang: 'hang', nguon: 'nguon', ttTrong: 'ttTrong', ttKinh: 'ttKinh', tuVan: 'nhanVien', cat: 'nhanVien', phanHoi: 'phanHoi' }[f];
+  if (listName) {
+    if (S.other === k) return `<input class="${cls}" ${attrs} data-other="${listName}" placeholder="Gõ ${Logic.LABEL[f].toLowerCase()} mới rồi Enter" autofocus>`;
+    const opts = S.lists[listName];
+    const canOther = f === 'hang' || f === 'nguon';
+    return `<select class="${cls}" ${attrs}><option value=""></option>${opts.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('')}${v && !opts.includes(v) ? `<option selected>${esc(v)}</option>` : ''}${canOther ? '<option value="__other">Khác…</option>' : ''}</select>`;
+  }
+  if (f === 'ngayDat' || f === 'ngayHen') return `<input type="date" class="${cls}" ${attrs} value="${esc(v)}">`;
+  const extra = f === 'loai' ? 'list="dl-loai"' : f === 'tuoi' ? 'inputmode="numeric"' : f === 'sdt' ? 'inputmode="tel"' : '';
+  return `<input class="${cls} ${RX.has(f) ? 'mono' : ''}" ${attrs} ${extra} value="${esc(v)}" ${RX.has(f) ? 'placeholder="-1.25/-0.50*180"' : ''}>`;
+}
+function field(o, f, wide) {
+  const miss = S.missingFor === o.id && Logic.REQUIRED.includes(f) && String(o[f] ?? '').trim() === '';
+  return `<div class="field ${Logic.REQUIRED.includes(f) ? 'req' : ''} ${miss ? 'missing' : ''}" ${wide ? 'style="grid-column:1/-1"' : ''}><label for="in-${o.id}-${f}">${Logic.LABEL[f]}</label>${control(o, f, 'field')}</div>`;
+}
+function statusChips(o, onHen) {
+  const u = Logic.urgency(o, TODAY);
+  const out = [];
+  if (o.ngayHen && !Logic.isDone(o)) out.push(`<span class="chip ${u}">Hẹn ${fmt(o.ngayHen)}${u === 'qua' ? ' · quá hẹn' : ''}</span>`);
+  out.push(`<span class="chip ${Logic.isDone(o) ? 'xong' : 'plain'}">${esc(o.ttKinh)}</span>`);
+  if (o.phanHoi === 'Sự cố') out.push('<span class="chip suco">Sự cố</span>');
+  return out.join('');
+}
+
+/* ================= DANH SÁCH THEO TRANG ================= */
+function pageData() {
+  switch (S.page) {
+    case 'today': return Logic.byDay(S.orders, TODAY);
+    case 'history': return Logic.byDay(S.orders, S.histDay);
+    case 'hen': return Logic.kinhHen(S.orders, TODAY);
+    case 'suco': return Logic.suCo(S.orders);
+    case 'tong': return Logic.all(S.orders, S.q, S.month);
+    case 'trash': return Logic.trash(S.orders);
+  }
+}
+const canAdd = () => S.page === 'today' || S.page === 'history';
+function counts() {
+  return { today: Logic.byDay(S.orders, TODAY).length, hen: Logic.kinhHen(S.orders, TODAY).length, suco: Logic.suCo(S.orders).length,
+    tong: S.orders.filter(o => !o.trashed).length, trash: Logic.trash(S.orders).length,
+    qua: Logic.kinhHen(S.orders, TODAY).filter(o => Logic.urgency(o, TODAY) === 'qua').length };
+}
+function pageHeader() {
+  const c = counts();
+  const sub = {
+    today: `${fmt(TODAY)} · ${c.today} đơn đặt hôm nay`,
+    history: `Chọn một ngày để xem các đơn đặt ngày đó`,
+    hen: `${c.hen} đơn có ngày hẹn chưa trả${c.qua ? ` · ${c.qua} quá hẹn` : ''}`,
+    suco: `Đơn có Phản hồi = Sự cố`,
+    tong: `Tìm theo tên hoặc SĐT`,
+    trash: `Khôi phục được bất cứ lúc nào`,
+  }[S.page];
+  const title = PAGES.find(p => p[0] === S.page)[1];
+  return `<div class="page-h"><h1>${title}</h1><span class="sub">${sub}</span><span class="grow"></span>
+    <span class="saving ${S.saving.includes('✓') ? 'ok' : ''}" aria-live="polite">${S.saving}</span>
+    ${canAdd() && S.variant === 'b' ? '<button class="btn primary" data-act="add">+ Thêm đơn</button>' : ''}</div>
+    ${S.page === 'history' ? calendar() : ''}
+    ${S.page === 'history' ? `<div class="page-h" style="margin-top:0"><h1 style="font-size:17px">Đơn ngày ${fmt(S.histDay)}</h1></div>` : ''}
+    ${S.page === 'tong' ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-block:8px"><input id="search" data-act="search" class="btn" style="flex:1;min-width:0;max-width:340px;text-align:left" placeholder="Tìm tên hoặc số điện thoại" value="${esc(S.q)}">
+      <select id="month" data-act="month" class="btn">${monthsOptions()}</select></div>` : ''}
+    ${flash()}`;
+}
+function monthsOptions() {
+  const ms = [...new Set(S.orders.map(o => o.ngayDat.slice(0, 7)))].sort().reverse();
+  return `<option value="">Mọi tháng</option>` + ms.map(m => `<option value="${m}" ${m === S.month ? 'selected' : ''}>Tháng ${m.slice(5)}/${m.slice(0, 4)}</option>`).join('');
+}
+function flash() {
+  if (!S.flash) return '';
+  return `<div class="flash ${S.flash.kind}" role="status"><span>${esc(S.flash.text)}</span>
+    ${S.flash.undo ? '<button class="btn small" data-act="undo">Hoàn tác</button>' : ''}<button class="btn small ghost" data-act="dismiss" aria-label="Đóng thông báo">✕</button></div>`;
+}
+function calendar() {
+  const [y, m] = S.histMonth.split('-').map(Number);
+  const first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate();
+  const lead = (first.getDay() + 6) % 7;
+  const cnt = {}; S.orders.forEach(o => { if (!o.trashed) cnt[o.ngayDat] = (cnt[o.ngayDat] || 0) + 1; });
+  let cells = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => `<div class="dow">${d}</div>`).join('');
+  for (let i = 0; i < lead; i++) cells += '<button disabled></button>';
+  for (let d = 1; d <= days; d++) {
+    const s = `${y}-${pad(m)}-${pad(d)}`, n = cnt[s] || 0;
+    cells += `<button data-act="day" data-day="${s}" class="${n ? 'has' : ''} ${s === S.histDay ? 'sel' : ''} ${s === TODAY ? 'today' : ''}"><span class="d">${d}</span><span class="n">${n ? n + ' đơn' : '–'}</span></button>`;
+  }
+  return `<div style="display:flex;align-items:center;gap:8px"><button class="btn small" data-act="mon" data-d="-1" aria-label="Tháng trước">‹</button><b>Tháng ${m}/${y}</b><button class="btn small" data-act="mon" data-d="1" aria-label="Tháng sau">›</button></div><div class="cal">${cells}</div>`;
+}
+
+/* ================= VARIANT A: bảng tính ================= */
+const A_COLS = [['ten', 'w-ten'], ['tuoi', 'w-sm'], ['sdt', 'w-md'], ['mp', 'w-rx'], ['mt', 'w-rx'], ['add', 'w-sm'], ['hang', 'w-md'], ['loai', 'w-lg'], ['nguon', 'w-md'],
+  ['ngayDat', 'w-date'], ['ngayHen', 'w-date'], ['ttTrong', 'w-lg'], ['ttKinh', 'w-lg'], ['tuVan', 'w-md'], ['cat', 'w-md'], ['phanHoi', 'w-md'], ['shipTime', 'w-md'], ['diaChi', 'w-lg'], ['ghiChu', 'w-lg']];
+const A_HEN_COLS = ['ngayHen', 'ten', 'sdt', 'mp', 'mt', 'hang', 'loai', 'ttTrong', 'ttKinh', 'cat', 'phanHoi', 'ghiChu'];
+function variantA() {
+  const c = counts();
+  const tabs = PAGES.map(([k, l]) => `<button class="${S.page === k ? 'on' : ''}" data-act="page" data-page="${k}">${l}${c[k] ? `<span class="count ${k === 'hen' && c.qua ? 'red' : ''}">${c[k]}</span>` : ''}</button>`).join('');
+  const rows = pageData();
+  const isHen = S.page === 'hen', isTrash = S.page === 'trash';
+  const cols = isHen ? A_HEN_COLS.map(f => [f, (A_COLS.find(x => x[0] === f) || [f, 'w-md'])[1]]) : A_COLS;
+  const head = `<tr>${isHen ? '<th>Hoàn thành</th>' : ''}${cols.map(([f]) => `<th>${Logic.LABEL[f]}</th>`).join('')}<th></th></tr>`;
+  const body = rows.map(o => {
+    const u = Logic.urgency(o, TODAY);
+    const doneBtn = isHen ? `<td class="act"><button class="btn small" data-act="complete" data-id="${o.id}">✓ Hoàn thành</button></td>` : '';
+    const tail = isTrash ? `<button class="btn small" data-act="restore" data-id="${o.id}">Khôi phục</button>` : `<button class="btn small ghost" data-act="trash" data-id="${o.id}" title="Đưa vào thùng rác" aria-label="Đưa vào thùng rác">🗑</button>`;
+    return `<tr class="${isHen ? 'u-' + u : ''} ${S.missingFor === o.id ? 'flashrow' : ''}">${doneBtn}${cols.map(([f, w]) => `<td class="${w} ${f === 'ngayHen' ? 'hen' : ''}">${control(o, f, 'cell')}</td>`).join('')}<td class="act">${tail}</td></tr>`;
+  }).join('');
+  const newRow = canAdd() ? `<tr class="new"><td class="w-ten"><input class="cell" data-new="1" data-k="new:ten" id="in-new-ten" placeholder="+ Gõ tên bệnh nhân…" aria-label="Tên bệnh nhân mới"></td><td colspan="${cols.length}" class="muted" style="padding-left:10px;font-size:12px">Gõ tên rồi Enter: dòng tự tạo, Ngày đặt = ${fmt(S.page === 'history' ? S.histDay : TODAY)}</td></tr>` : '';
+  const table = rows.length || canAdd() ? `<div class="grid-wrap"><table class="grid"><thead>${head}</thead><tbody>${body}${newRow}</tbody></table></div>` : `<div class="empty">${emptyText()}</div>`;
+  return `<div class="A-top"><div class="wrap row"><span class="A-brand">Sổ Đơn Kính</span><div class="A-tabs" role="tablist">${tabs}</div></div></div>
+    <main class="wrap">${pageHeader()}${table}</main>`;
+}
+function emptyText() {
+  return { today: 'Hôm nay chưa có đơn nào.', history: 'Ngày này không có đơn.', hen: 'Không còn kính hẹn nào chưa trả.', suco: 'Không có đơn nào đang bị sự cố.', tong: 'Không tìm thấy đơn phù hợp.', trash: 'Thùng rác trống.' }[S.page];
+}
+
+/* ================= VARIANT B: danh sách + form ================= */
+function variantB() {
+  const c = counts();
+  const nav = PAGES.map(([k, l]) => `<button class="${S.page === k ? 'on' : ''}" data-act="page" data-page="${k}"><span>${l}</span>${c[k] ? `<span class="chip ${k === 'hen' && c.qua ? 'qua' : ''}">${c[k]}</span>` : ''}</button>`).join('');
+  const rows = pageData();
+  const list = rows.length ? `<div class="B-list">${rows.map(o => `
+    <button class="B-row" data-act="open" data-id="${o.id}">
+      <span><span class="name">${esc(o.ten) || '<i class="muted">Chưa có tên</i>'}</span><br><span class="meta">${o.tuoi ? esc(o.tuoi) + ' tuổi · ' : ''}${esc(o.sdt) || 'chưa có SĐT'} · đặt ${fmt(o.ngayDat)}</span></span>
+      <span class="rx mono meta">MP ${esc(o.mp) || '–'}<br>MT ${esc(o.mt) || '–'}</span>
+      <span class="tro meta">${esc(o.hang)}<br>${esc(o.loai)}</span>
+      <span class="chips">${statusChips(o)}</span>
+    </button>`).join('')}</div>` : `<div class="empty">${emptyText()}</div>`;
+  return `<div class="B"><nav class="B-side"><div class="brand">Sổ Đơn Kính</div>${nav}<div class="sp"></div><button data-act="logout">Đăng xuất</button></nav>
+    <main class="B-main wrap">${pageHeader()}${list}</main></div>${drawer()}`;
+}
+
+/* ================= VARIANT C: bảng tiến độ ================= */
+function variantC() {
+  const c = counts();
+  const rows = pageData();
+  let lanes;
+  if (S.page === 'hen') {
+    const groups = [['qua', 'Quá hẹn'], ['gan', 'Hôm nay – mai'], ['sap', '2 – 5 ngày'], ['', 'Sau đó']];
+    lanes = groups.map(([u, l]) => [l, u, rows.filter(o => Logic.urgency(o, TODAY) === u)]);
+  } else if (S.page === 'trash' || S.page === 'suco') {
+    lanes = [[S.page === 'trash' ? 'Trong thùng rác' : 'Đang bị sự cố', '', rows]];
+  } else {
+    lanes = Logic.DONE && S.lists.ttKinh.map(t => [t, '', rows.filter(o => o.ttKinh === t)]);
+  }
+  const card = o => `<div class="card"><button class="btn ghost" style="padding:0;text-align:left" data-act="open" data-id="${o.id}">
+      <div class="name">${esc(o.ten) || '<i class="muted">Chưa có tên</i>'}</div>
+      <div class="rx mono muted">MP ${esc(o.mp) || '–'} · MT ${esc(o.mt) || '–'}</div>
+      <div class="muted" style="font-size:12px">${esc(o.hang)} ${esc(o.loai)}</div></button>
+      <div class="foot">${statusChips(o)}<span class="sp"></span>
+      ${S.page === 'trash' ? `<button class="btn small" data-act="restore" data-id="${o.id}">Khôi phục</button>` : !Logic.isDone(o) && o.ngayHen ? `<button class="btn small" data-act="complete" data-id="${o.id}">✓ Hoàn thành</button>` : ''}</div></div>`;
+  const board = `<div class="board">${lanes.map(([l, u, list]) => `<section class="lane ${u}"><h3>${l}<span class="mono">${list.length}</span></h3>${list.map(card).join('') || '<div class="none">Trống</div>'}</section>`).join('')}</div>`;
+  const tabs = PAGES.map(([k, l]) => `<button class="${S.page === k ? 'on' : ''}" data-act="page" data-page="${k}"><span class="n">${k === 'history' ? '▦' : c[k] ?? 0}</span>${l}</button>`).join('');
+  return `<div class="C-top wrap"><span class="brand">Sổ Đơn Kính</span><span class="grow"></span><button class="btn small ghost" data-act="logout">Đăng xuất</button></div>
+    <main class="C-main wrap">${pageHeader()}${board}</main>
+    ${canAdd() ? '<button class="btn primary fab" data-act="add">+ Thêm đơn</button>' : ''}
+    <nav class="C-tabs">${tabs}</nav>${drawer()}`;
+}
+
+/* ================= FORM (drawer) ================= */
+function drawer() {
+  if (!S.openId) return '';
+  const o = get(S.openId); if (!o) return '';
+  const ph = S.lists.phanHoi.map(x => `<button class="${o.phanHoi === x ? 'on' : ''} ${x === 'Sự cố' ? 'suco' : ''}" data-act="ph" data-id="${o.id}" data-val="${esc(x)}">${x}</button>`).join('');
+  const miss = S.missingFor === o.id ? Logic.missing(o) : [];
+  return `<div class="scrim" data-act="close"></div>
+  <aside class="drawer" role="dialog" aria-label="Đơn kính ${esc(o.ten)}">
+    <header><h2>${esc(o.ten) || 'Đơn mới'}</h2><span class="mono muted">${o.id}</span><button class="btn small ghost" data-act="close" aria-label="Đóng">✕</button></header>
+    <div class="body">
+      ${miss.length ? `<div class="flash err">Còn thiếu: ${miss.map(k => Logic.LABEL[k]).join(', ')}</div>` : ''}
+      <section><h3>Bệnh nhân</h3><div class="g3">${field(o, 'ten', true)}${field(o, 'tuoi')}${field(o, 'sdt')}</div></section>
+      <section><h3>Độ kính</h3><div class="g3">${field(o, 'mp')}${field(o, 'mt')}${field(o, 'add')}</div></section>
+      <section><h3>Tròng</h3><div class="g2">${field(o, 'hang')}${field(o, 'nguon')}${field(o, 'loai', true)}</div></section>
+      <section><h3>Hẹn và tiến độ</h3><div class="g2">${field(o, 'ngayDat')}${field(o, 'ngayHen')}${field(o, 'ttTrong')}${field(o, 'ttKinh')}${field(o, 'tuVan')}${field(o, 'cat')}</div></section>
+      <section><h3>Ship (nếu có)</h3><div class="g2">${field(o, 'shipTime')}${field(o, 'diaChi')}</div></section>
+      <section><h3>Phản hồi</h3><div class="seg" role="group" aria-label="Phản hồi">${ph}</div></section>
+      <section><div class="g2">${field(o, 'ghiChu', true)}</div></section>
+    </div>
+    <footer>
+      ${o.trashed ? `<button class="btn" data-act="restore" data-id="${o.id}">Khôi phục</button>` : `<button class="btn ghost" data-act="trash" data-id="${o.id}">🗑 Thùng rác</button>`}
+      <span class="sp"></span>
+      ${Logic.isDone(o) ? '<span class="chip xong">Đã hoàn thành</span>' : `<button class="btn primary" data-act="complete" data-id="${o.id}">✓ Hoàn thành</button>`}
+      <button class="btn" data-act="close">Xong</button>
+    </footer>
+  </aside>`;
+}
+
+/* ================= ĐĂNG NHẬP ================= */
+function login() {
+  return `<div class="login wrap"><form data-act="login">
+    <h1>Sổ Đơn Kính</h1><p class="muted" style="margin:0">Đăng nhập tài khoản chung của cửa hàng</p>
+    <div class="field"><label for="u">Tên đăng nhập</label><input id="u" name="u" value="cuahang" autocomplete="username"></div>
+    <div class="field"><label for="p">Mật khẩu</label><input id="p" name="p" type="password" autocomplete="current-password"></div>
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="remember" checked> Nhớ đăng nhập 30 ngày trên máy này</label>
+    ${S.loginErr ? `<div class="flash err" style="margin:0">${S.loginErr}</div>` : ''}
+    <button class="btn primary" type="submit">Đăng nhập</button>
+    <div class="hint">Bản thử: mật khẩu là <b class="mono">123456</b>. Tài khoản thật lưu trong tab “Cài đặt” của Google Sheet.</div>
+  </form></div>`;
+}
+
+/* ================= KHUNG PROTOTYPE ================= */
+function protoBar() {
+  const i = VARIANTS.findIndex(v => v[0] === S.variant);
+  return `<div class="proto ${S.variant === 'c' && S.loggedIn ? 'liftC' : ''}" role="toolbar" aria-label="Chọn kiểu giao diện bản thử">
+    <button data-act="var" data-d="-1" aria-label="Kiểu trước">←</button><span class="lbl">${VARIANTS[i][1]}</span><button data-act="var" data-d="1" aria-label="Kiểu sau">→</button>
+    <span class="sep"></span><button data-act="sheet">${S.sheetOpen ? 'Ẩn Sheet' : 'Xem Sheet'}</button></div>`;
+}
+function sheetPanel() {
+  if (!S.sheetOpen) return '';
+  const cols = ['id', 'ten', 'ngayDat', 'ngayHen', 'ttTrong', 'ttKinh', 'phanHoi', 'nguon', 'hang', 'trashed'];
+  const rows = [...S.orders].sort((a, b) => (b.id === S.hot) - (a.id === S.hot));
+  return `<div class="sheet"><header class="wrap"><b>Tab “Đơn kính” trong Google Sheet (mô phỏng): mỗi Đơn kính đúng một dòng</b><button class="btn small" data-act="sheet">Đóng</button></header>
+    <div class="scroll wrap"><table><thead><tr>${cols.map(c => `<th>${c === 'id' ? 'Mã' : c === 'trashed' ? 'Thùng rác' : Logic.LABEL[c]}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(o => `<tr class="${o.id === S.hot ? 'hot' : ''} ${o.trashed ? 'gone' : ''}">${cols.map(c => `<td class="${c === 'id' || c.startsWith('ngay') ? 'mono' : ''}">${c === 'trashed' ? (o.trashed ? 'có' : '') : c.startsWith('ngay') ? fmt(o[c]) : esc(o[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+}
+
+/* ================= RENDER + SỰ KIỆN ================= */
+const app = document.getElementById('app');
+function render() {
+  const ae = document.activeElement, k = S.focusNext || ae?.dataset?.k;
+  const sel = ae && 'selectionStart' in ae && ae.type !== 'date' ? ae.selectionStart : null;
+  document.getElementById('dl-loai').innerHTML = [...new Set(S.orders.map(o => o.loai).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join('');
+  const body = !S.loggedIn ? login() : S.variant === 'a' ? variantA() : S.variant === 'b' ? variantB() : variantC();
+  app.innerHTML = body + sheetPanel() + protoBar();
+  const target = k && (app.querySelector(`[data-k="${CSS.escape(k)}"]`) || (S.page === 'tong' && ae?.id === 'search' && app.querySelector('#search')));
+  const t2 = target || (ae?.id === 'search' ? app.querySelector('#search') : null);
+  if (t2) { t2.focus(); if (sel != null && t2.setSelectionRange && !S.focusNext) try { t2.setSelectionRange(sel, sel); } catch (e) {} }
+  const auto = app.querySelector('[autofocus]'); if (auto) auto.focus();
+  S.focusNext = null;
+}
+const later = () => setTimeout(render, 0);
+
+app.addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.dataset.act === 'login') {
+    if (e.target.p.value === '123456') { S.loggedIn = true; S.loginErr = ''; } else S.loginErr = 'Sai mật khẩu. Bản thử dùng 123456.';
+    render();
+  }
+});
+app.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.act === 'month') { S.month = t.value; render(); return; }
+  if (t.dataset.new) {
+    if (!t.value.trim()) return;
+    const o = newOrder(t.value.trim().toUpperCase()); S.focusNext = `${o.id}:tuoi`; later(); return;
+  }
+  if (t.dataset.other) return; // xử lý bằng Enter / blur bên dưới
+  if (!t.dataset.f) return;
+  if (t.value === '__other') { S.other = t.dataset.k; render(); return; }
+  setField(t.dataset.id, t.dataset.f, t.dataset.f === 'ten' ? t.value.toUpperCase() : t.value);
+  later();
+});
+function commitOther(t) {
+  const v = t.value.trim(), list = t.dataset.other;
+  if (v && !S.lists[list].includes(v)) S.lists[list].push(v);
+  if (v) setField(t.dataset.id, t.dataset.f, v);
+  S.other = null; later();
+  if (v) S.flash = { kind: 'ok', text: `Đã thêm “${v}” vào danh sách ${Logic.LABEL[t.dataset.f]}. Từ giờ chọn được ở mọi đơn.` };
+}
+app.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t.dataset?.other && e.key === 'Enter') { e.preventDefault(); commitOther(t); }
+  if (t.dataset?.other && e.key === 'Escape') { S.other = null; render(); }
+  if (t.dataset?.new && e.key === 'Enter') { e.preventDefault(); t.blur(); }
+});
+app.addEventListener('focusout', e => { if (e.target.dataset?.other && S.other) commitOther(e.target); });
+app.addEventListener('input', e => { if (e.target.dataset.act === 'search') { S.q = e.target.value; render(); } });
+app.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'FORM' || b.tagName === 'INPUT' || b.tagName === 'SELECT') return;
+  const id = b.dataset.id, a = b.dataset.act;
+  if (a === 'page') { S.page = b.dataset.page; S.flash = null; S.missingFor = null; S.openId = null; }
+  else if (a === 'var') { const i = VARIANTS.findIndex(v => v[0] === S.variant); setVariant(VARIANTS[(i + Number(b.dataset.d) + 3) % 3][0]); return; }
+  else if (a === 'sheet') S.sheetOpen = !S.sheetOpen;
+  else if (a === 'complete') doComplete(id);
+  else if (a === 'trash') doTrash(id);
+  else if (a === 'restore') { const o = get(id); o.trashed = false; touch(id); S.flash = { kind: 'ok', text: `Đã khôi phục “${o.ten}”.` }; }
+  else if (a === 'open') { S.openId = id; S.flash = null; }
+  else if (a === 'close') { const o = get(S.openId); if (o && !o.ten.trim()) S.orders = S.orders.filter(x => x !== o); S.openId = null; S.missingFor = null; }
+  else if (a === 'add') { const o = newOrder(''); S.openId = o.id; S.focusNext = `${o.id}:ten`; }
+  else if (a === 'ph') { const o = get(id); setField(id, 'phanHoi', o.phanHoi === b.dataset.val ? '' : b.dataset.val); }
+  else if (a === 'day') { S.histDay = b.dataset.day; }
+  else if (a === 'mon') { const [y, m] = S.histMonth.split('-').map(Number); const d = new Date(y, m - 1 + Number(b.dataset.d), 1); S.histMonth = iso(d).slice(0, 7); }
+  else if (a === 'undo') { S.flash.undo(); S.flash = null; }
+  else if (a === 'dismiss') S.flash = null;
+  else if (a === 'logout') { S.loggedIn = false; S.openId = null; }
+  render();
+});
+function setVariant(v) {
+  S.variant = v; S.openId = null;
+  if (location.hash !== '#' + v) history.replaceState(null, '', '#' + v);
+  render();
+}
+window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (VARIANTS.some(x => x[0] === v)) { S.variant = v; render(); } });
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t.matches?.('input,textarea,select,[contenteditable]')) return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const i = VARIANTS.findIndex(v => v[0] === S.variant); setVariant(VARIANTS[(i + (e.key === 'ArrowRight' ? 1 : -1) + 3) % 3][0]); }
+  if (e.key === 'Escape' && S.openId) { S.openId = null; render(); }
+});
+{ const v = location.hash.slice(1); if (VARIANTS.some(x => x[0] === v)) S.variant = v; }
+render();
+</script>
