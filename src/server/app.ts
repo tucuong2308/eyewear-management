@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, denHen, hoanThanh, kinhHen, suCo, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
+  DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, demTheoNgay, denHen, hoanThanh, kinhHen, laThang, suCo, timDon, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
 } from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
 
@@ -73,6 +73,16 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       if (!kq.ok) return guiJson(res, 400, { loi: kq.loi });
       if (kq.moi) kho.themVaoDanhSach(loai, kq.ds[kq.ds.length - 1]!);
       return guiJson(res, 201, kho.danhSach()[loai]);
+    }
+    if (url.pathname === '/api/lich' && req.method === 'GET') {
+      const thang = url.searchParams.get('thang') ?? today().slice(0, 7);
+      if (!laThang(thang)) return guiJson(res, 400, { loi: 'Tháng phải có dạng YYYY-MM' });
+      return guiJson(res, 200, demTheoNgay(kho.tatCa(), thang));
+    }
+    if (url.pathname === '/api/tong' && req.method === 'GET') {
+      const thang = url.searchParams.get('thang') ?? '';
+      if (thang && !laThang(thang)) return guiJson(res, 400, { loi: 'Tháng phải có dạng YYYY-MM' });
+      return guiJson(res, 200, timDon(kho.tatCa(), url.searchParams.get('q') ?? '', thang));
     }
     if (url.pathname === '/api/su-co' && req.method === 'GET') {
       return guiJson(res, 200, suCo(kho.tatCa()));

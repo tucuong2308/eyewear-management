@@ -1,6 +1,7 @@
 // Giao diện kiểu A của bản thử (bảng tính).
 // Trang Hôm nay: bảng nhập Đơn kính hôm nay + bảng Đến hẹn và quá hẹn để bấm Hoàn thành ngay.
 // Trang Kính hẹn: mọi Kính hẹn, rút gọn cột. Trang Sự cố: đơn có Phản hồi = Sự cố. Trang Thùng rác: khôi phục đơn.
+// Trang Lịch sử: lịch tháng, bấm ngày để xem/sửa/thêm đơn. Trang Tổng: tìm theo tên hoặc SĐT, lọc tháng.
 import {
   DANH_SACH_CUA_TRUONG, DANH_SACH_THEM_DUOC, NHAN, mucGap, soNgay,
   type DanhSach, type DonKinh, type LoaiDanhSach, type TruongSuaDuoc,
@@ -25,9 +26,11 @@ const COT_KINH_HEN: [TruongSuaDuoc, string][] = [
 ];
 const RONG = Object.fromEntries(COT_NHAP) as Record<TruongSuaDuoc, string>;
 
-type Trang = 'hom-nay' | 'kinh-hen' | 'su-co' | 'thung-rac';
-const TRANG: [Trang, string][] = [['hom-nay', 'Hôm nay'], ['kinh-hen', 'Kính hẹn'], ['su-co', 'Sự cố'], ['thung-rac', 'Thùng rác']];
-type Bang = 'nhap' | 'hen' | 'kh' | 'sc' | 'tr';
+type Trang = 'hom-nay' | 'lich-su' | 'kinh-hen' | 'su-co' | 'tong' | 'thung-rac';
+const TRANG: [Trang, string][] = [
+  ['hom-nay', 'Hôm nay'], ['lich-su', 'Lịch sử'], ['kinh-hen', 'Kính hẹn'], ['su-co', 'Sự cố'], ['tong', 'Tổng'], ['thung-rac', 'Thùng rác'],
+];
+type Bang = 'nhap' | 'hen' | 'kh' | 'sc' | 'tr' | 'ls' | 'tg';
 
 const DO_KINH = new Set<TruongSuaDuoc>(['mp', 'mt', 'add']);
 
@@ -40,6 +43,15 @@ const S = {
   kinhHen: [] as DonKinh[],
   suCo: [] as DonKinh[],
   thungRac: [] as DonKinh[],
+  /** Lịch sử: tháng đang xem, số đơn theo ngày, ngày đang chọn và các đơn của ngày đó. */
+  thangLich: homNayTheoMay().slice(0, 7),
+  lichDem: {} as Record<string, number>,
+  ngayChon: homNayTheoMay(),
+  donNgayChon: [] as DonKinh[],
+  /** Tổng: từ khóa tìm, tháng lọc ('' = mọi tháng) và kết quả. */
+  tim: '',
+  thangTong: homNayTheoMay().slice(0, 7),
+  tong: [] as DonKinh[],
   trang: trangTuHash(),
   trangThai: '' as '' | 'dang' | 'ok' | 'loi',
   thongBao: null as ThongBao | null,
@@ -81,14 +93,20 @@ async function goi<T>(method: string, path: string, body?: unknown): Promise<T> 
 }
 
 async function taiLai() {
-  const [don, denHen, kinhHen, suCo, thungRac, ds] = await Promise.all([
+  const [don, denHen, kinhHen, suCo, thungRac, ds, lichDem, donNgayChon, tong] = await Promise.all([
     goi<DonKinh[]>('GET', `/api/don-kinh?ngayDat=${S.homNay}`),
     goi<DonKinh[]>('GET', '/api/den-hen'),
     goi<DonKinh[]>('GET', '/api/kinh-hen'),
     goi<DonKinh[]>('GET', '/api/su-co'),
     goi<DonKinh[]>('GET', '/api/thung-rac'),
     goi<DanhSach & { goiYLoai: string[] }>('GET', '/api/danh-sach'),
+    goi<Record<string, number>>('GET', `/api/lich?thang=${S.thangLich}`),
+    goi<DonKinh[]>('GET', `/api/don-kinh?ngayDat=${S.ngayChon}`),
+    goi<DonKinh[]>('GET', `/api/tong?q=${encodeURIComponent(S.tim)}&thang=${S.thangTong}`),
   ]);
+  S.lichDem = lichDem;
+  S.donNgayChon = donNgayChon;
+  S.tong = tong;
   S.don = don;
   S.denHen = denHen;
   S.kinhHen = kinhHen;
@@ -115,10 +133,10 @@ async function luu<T>(viec: () => Promise<T>): Promise<T | undefined> {
   }
 }
 
-async function taoDon(ten: string) {
-  const don = await luu(() => goi<DonKinh>('POST', '/api/don-kinh', { ten, ngayDat: S.homNay }));
+async function taoDon(ten: string, ngayDat: string, bang: Bang) {
+  const don = await luu(() => goi<DonKinh>('POST', '/api/don-kinh', { ten, ngayDat }));
   if (don) {
-    S.focusSau = `nhap:${don.id}:tuoi`;
+    S.focusSau = `${bang}:${don.id}:tuoi`;
     render();
   }
 }
@@ -202,13 +220,14 @@ function o(bang: Bang, don: DonKinh, f: TruongSuaDuoc) {
   return `<input class="cell ${DO_KINH.has(f) ? 'mono' : ''}" type="${type}" ${extra} ${goiY} data-id="${don.id}" data-f="${f}" data-k="${k}" ${nhan} value="${esc(don[f])}">`;
 }
 
-function bangNhap() {
-  const hang = S.don.map((d) => `<tr>${COT_NHAP.map(([f, w]) => `<td class="${w}">${o('nhap', d, f)}</td>`).join('')}${oXoa(d)}</tr>`).join('');
+/** Bảng nhập đơn của một ngày: trang Hôm nay (hôm nay) và trang Lịch sử (ngày đang chọn). */
+function bangNhap(bang: Bang, rows: DonKinh[], ngayDat: string) {
+  const hang = rows.map((d) => `<tr>${COT_NHAP.map(([f, w]) => `<td class="${w}">${o(bang, d, f)}</td>`).join('')}${oXoa(d)}</tr>`).join('');
   return `<div class="grid-wrap"><table>
-    <thead><tr>${COT_NHAP.map(([f]) => `<th>${NHAN[f]}</th>`).join('')}</tr></thead>
+    <thead><tr>${COT_NHAP.map(([f]) => `<th>${NHAN[f]}</th>`).join('')}<th></th></tr></thead>
     <tbody>${hang}
-      <tr class="new"><td class="w-ten"><input class="cell" data-new="1" data-k="new:ten" placeholder="+ Gõ tên bệnh nhân…" aria-label="Tên bệnh nhân mới"></td>
-      <td colspan="${COT_NHAP.length}" class="muted" style="padding-left:10px;font-size:12px">Gõ tên rồi Enter để tạo Đơn kính · Ngày đặt = ${ngayNgan(S.homNay)}</td></tr>
+      <tr class="new"><td class="w-ten"><input class="cell" data-new="${bang}" data-ngay="${ngayDat}" data-k="${bang}:new:ten" placeholder="+ Gõ tên bệnh nhân…" aria-label="Tên bệnh nhân mới"></td>
+      <td colspan="${COT_NHAP.length}" class="muted" style="padding-left:10px;font-size:12px">Gõ tên rồi Enter để tạo Đơn kính · Ngày đặt = ${ngayNgan(ngayDat)}</td></tr>
     </tbody></table></div>`;
 }
 
@@ -244,7 +263,7 @@ function bangHen(bang: Bang, rows: DonKinh[], cotGoc: [TruongSuaDuoc, string][],
 function trangHomNay() {
   const quaHen = S.denHen.filter((d) => mucGap(d, S.homNay) === 'qua').length;
   return `<h2 class="sec-h">Nhập đơn hôm nay <span class="muted">${S.don.length} đơn</span></h2>
-      ${bangNhap()}
+      ${bangNhap('nhap', S.don, S.homNay)}
       <h2 class="sec-h">Đến hẹn và quá hẹn <span class="muted">${S.denHen.length} đơn chờ trả${quaHen ? ` · <span class="do">${quaHen} quá hẹn</span>` : ''}</span></h2>
       ${bangHen('hen', S.denHen, COT_HEN, 'Không có đơn nào đến hẹn hoặc quá hẹn. Mọi Kính hẹn đã trả xong.')}`;
 }
@@ -264,13 +283,54 @@ function bangDayDu(bang: Bang, rows: DonKinh[], trong: string) {
 }
 
 async function datThungRac(id: string, vao: boolean) {
-  const don = [...S.don, ...S.kinhHen, ...S.suCo, ...S.thungRac].find((d) => d.id === id);
+  const don = tatCaDangHien().find((d) => d.id === id);
   const kq = await luu(() => goi<DonKinh>('POST', `/api/don-kinh/${encodeURIComponent(id)}/${vao ? 'thung-rac' : 'khoi-phuc'}`));
   if (!kq) return;
   S.thongBao = vao
     ? { loai: 'ok', noiDung: `Đã đưa “${don?.ten ?? ''}” vào Thùng rác.`, hoanTac: () => datThungRac(id, false) }
     : { loai: 'ok', noiDung: `Đã khôi phục “${don?.ten ?? ''}”.` };
   render();
+}
+
+function lich() {
+  const [y, m] = S.thangLich.split('-').map(Number) as [number, number];
+  const soNgayThang = new Date(y, m, 0).getDate();
+  const dauTuan = (new Date(y, m - 1, 1).getDay() + 6) % 7; // thứ Hai là cột đầu
+  const p = (n: number) => String(n).padStart(2, '0');
+  let o = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((t) => `<div class="dow">${t}</div>`).join('');
+  o += '<span></span>'.repeat(dauTuan);
+  for (let d = 1; d <= soNgayThang; d++) {
+    const ngay = `${y}-${p(m)}-${p(d)}`;
+    const n = S.lichDem[ngay] ?? 0;
+    o += `<button type="button" data-act="chon-ngay" data-ngay="${ngay}" class="${n ? 'co' : ''} ${ngay === S.ngayChon ? 'chon' : ''} ${ngay === S.homNay ? 'nay' : ''}" aria-pressed="${ngay === S.ngayChon}">
+      <span class="d">${d}</span><span class="n">${n ? `${n} đơn` : '–'}</span></button>`;
+  }
+  return `<div class="lich-dau"><button class="btn small" data-act="doi-thang" data-d="-1" aria-label="Tháng trước">‹</button>
+      <b>Tháng ${m}/${y}</b><button class="btn small" data-act="doi-thang" data-d="1" aria-label="Tháng sau">›</button></div>
+    <div class="lich">${o}</div>`;
+}
+
+function trangLichSu() {
+  return `${lich()}
+    <h2 class="sec-h">Đơn đặt ngày ${ngayNgan(S.ngayChon)}/${S.ngayChon.slice(0, 4)} <span class="muted">${S.donNgayChon.length} đơn</span></h2>
+    ${bangNhap('ls', S.donNgayChon, S.ngayChon)}`;
+}
+
+function cacThang() {
+  const out: string[] = [];
+  const d = new Date(Number(S.homNay.slice(0, 4)), Number(S.homNay.slice(5, 7)) - 1, 1);
+  for (let i = 0; i < 24; i++) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    d.setMonth(d.getMonth() - 1);
+  }
+  return out;
+}
+
+function trangTong() {
+  const chon = cacThang().map((t) => `<option value="${t}" ${t === S.thangTong ? 'selected' : ''}>Tháng ${t.slice(5)}/${t.slice(0, 4)}</option>`).join('');
+  return `<div class="loc"><input type="search" class="tim" data-act="tim" data-k="tim" placeholder="Tìm tên (không cần dấu) hoặc SĐT" aria-label="Tìm Đơn kính" value="${esc(S.tim)}">
+      <select data-act="thang-tong" aria-label="Lọc theo tháng"><option value="" ${S.thangTong ? '' : 'selected'}>Mọi tháng</option>${chon}</select></div>
+    ${bangDayDu('tg', S.tong, S.tim ? 'Không tìm thấy Đơn kính nào.' : 'Chưa có Đơn kính nào trong tháng này.')}`;
 }
 
 function trangSuCo() {
@@ -281,9 +341,12 @@ function trangKinhHen() {
   return bangHen('kh', S.kinhHen, COT_KINH_HEN, 'Không còn Kính hẹn nào chưa trả.');
 }
 
+let viTriTim: number | null = null;
+
 function render() {
   const app = document.getElementById('app')!;
   const dangFocus = document.activeElement as HTMLElement | null;
+  viTriTim = dangFocus instanceof HTMLInputElement && dangFocus.dataset.k === 'tim' ? dangFocus.selectionStart : null;
   const k = S.focusSau ?? dangFocus?.dataset?.k;
 
   const trangThai = { '': '', dang: 'Đang lưu…', ok: 'Đã lưu ✓', loi: 'Chưa lưu' }[S.trangThai];
@@ -291,6 +354,8 @@ function render() {
   const tb = S.thongBao;
   const tieuDe = {
     'hom-nay': `<h1>Hôm nay</h1><span class="muted">${ngayNgan(S.homNay)}</span>`,
+    'lich-su': `<h1>Lịch sử</h1><span class="muted">bấm một ngày để xem, sửa hoặc thêm đơn</span>`,
+    tong: `<h1>Tổng</h1><span class="muted">${S.tong.length} đơn</span>`,
     'kinh-hen': `<h1>Kính hẹn</h1><span class="muted">${S.kinhHen.length} đơn có ngày hẹn chưa trả${quaHen ? ` · <span class="do">${quaHen} quá hẹn</span>` : ''}</span>`,
     'su-co': `<h1>Sự cố</h1><span class="muted">${S.suCo.length} đơn có Phản hồi = Sự cố</span>`,
     'thung-rac': `<h1>Thùng rác</h1><span class="muted">${S.thungRac.length} đơn · khôi phục được bất cứ lúc nào</span>`,
@@ -309,12 +374,21 @@ function render() {
       ${tb ? `<div class="flash ${tb.loai}" role="${tb.loai === 'loi' ? 'alert' : 'status'}"><span>${esc(tb.noiDung)}</span>
         ${tb.hoanTac ? '<button class="btn small" data-act="hoan-tac">Hoàn tác</button>' : ''}
         <button class="btn small ghost" data-act="dong-tb" aria-label="Đóng thông báo">✕</button></div>` : ''}
-      ${{ 'hom-nay': trangHomNay, 'kinh-hen': trangKinhHen, 'su-co': trangSuCo, 'thung-rac': () => bangDayDu('tr', S.thungRac, 'Thùng rác trống.') }[S.trang]()}
+      ${{
+        'hom-nay': trangHomNay,
+        'lich-su': trangLichSu,
+        'kinh-hen': trangKinhHen,
+        'su-co': trangSuCo,
+        tong: trangTong,
+        'thung-rac': () => bangDayDu('tr', S.thungRac, 'Thùng rác trống.'),
+      }[S.trang]()}
     </main>
     <datalist id="goi-y-loai">${(S.ds?.goiYLoai ?? []).map((x) => `<option value="${esc(x)}">`).join('')}</datalist>`;
 
   const el = k ? app.querySelector<HTMLInputElement>(`[data-k="${CSS.escape(k)}"]`) : null;
   el?.focus();
+  // giữ vị trí con trỏ khi đang gõ trong ô tìm kiếm
+  if (el && el === app.querySelector('[data-k="tim"]') && viTriTim != null) el.setSelectionRange(viTriTim, viTriTim);
   S.focusSau = null;
 }
 
@@ -322,7 +396,12 @@ document.addEventListener('change', (e) => {
   const t = e.target as HTMLInputElement;
   if (t.dataset.new) {
     const ten = t.value.trim();
-    if (ten) void taoDon(ten);
+    if (ten) void taoDon(ten, t.dataset.ngay ?? S.homNay, t.dataset.new as Bang);
+    return;
+  }
+  if (t.dataset.act === 'thang-tong') {
+    S.thangTong = t.value;
+    void taiLai();
     return;
   }
   const { id, f } = t.dataset;
@@ -334,7 +413,7 @@ document.addEventListener('change', (e) => {
     render();
     return;
   }
-  const don = [...S.don, ...S.kinhHen, ...S.suCo, ...S.thungRac].find((d) => d.id === id);
+  const don = tatCaDangHien().find((d) => d.id === id);
   if (don && don[f as TruongSuaDuoc] === t.value) return;
   // lưu sau khi trình duyệt đã chuyển focus sang ô kế tiếp
   setTimeout(() => void suaO(id, f as TruongSuaDuoc, t.value), 0);
@@ -346,12 +425,22 @@ document.addEventListener('click', (e) => {
   const act = b.dataset.act;
   if (act === 'hoan-thanh' && b.dataset.id) void hoanThanh(b.dataset.id, (b.dataset.bang as Bang) ?? 'hen');
   if (act === 'phan-hoi' && b.dataset.id) {
-    const don = [...S.don, ...S.kinhHen, ...S.suCo, ...S.thungRac].find((d) => d.id === b.dataset.id);
+    const don = tatCaDangHien().find((d) => d.id === b.dataset.id);
     const v = b.dataset.val ?? '';
     // bấm lại vào lựa chọn đang chọn thì bỏ chọn
     void suaO(b.dataset.id, 'phanHoi', don?.phanHoi === v ? '' : v);
   }
   if ((act === 'thung-rac' || act === 'khoi-phuc') && b.dataset.id) void datThungRac(b.dataset.id, act === 'thung-rac');
+  if (act === 'chon-ngay' && b.dataset.ngay) {
+    S.ngayChon = b.dataset.ngay;
+    void taiLai();
+  }
+  if (act === 'doi-thang') {
+    const [y, m] = S.thangLich.split('-').map(Number) as [number, number];
+    const d = new Date(y, m - 1 + Number(b.dataset.d), 1);
+    S.thangLich = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    void taiLai();
+  }
   if (act === 'hoan-tac' && S.thongBao?.hoanTac) {
     const viec = S.thongBao.hoanTac;
     S.thongBao = null;
@@ -390,6 +479,19 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     t.blur();
   }
+});
+
+function tatCaDangHien() {
+  return [...S.don, ...S.kinhHen, ...S.suCo, ...S.thungRac, ...S.donNgayChon, ...S.tong];
+}
+
+let henTim: ReturnType<typeof setTimeout> | undefined;
+document.addEventListener('input', (e) => {
+  const t = e.target as HTMLInputElement;
+  if (t.dataset.act !== 'tim') return;
+  S.tim = t.value;
+  clearTimeout(henTim);
+  henTim = setTimeout(() => void taiLai(), 200);
 });
 
 window.addEventListener('hashchange', () => {
