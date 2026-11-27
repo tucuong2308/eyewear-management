@@ -14,3 +14,4 @@ dist/
 *.db-wal
 *.db-shm
 config.local.json
+apps-script/.clasp.json
