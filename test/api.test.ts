@@ -173,6 +173,29 @@ describe('Hoàn thành', () => {
   });
 });
 
+describe('Trang Kính hẹn', () => {
+  it('gồm mọi đơn có Ngày hẹn chưa Hoàn thành, hẹn sớm nhất lên đầu', async () => {
+    await taoDonHen('Tuần sau', '2026-12-04');
+    await taoDonHen('Quá hẹn', '2026-11-25');
+    await taoDonHen('Ngày mai', '2026-11-28');
+    const xong = await taoDonHen('Đã trả', '2026-11-26');
+    await api('POST', `/api/don-kinh/${xong.id}/hoan-thanh`);
+    await api('POST', '/api/don-kinh', { ten: 'Không hẹn' });
+
+    const r = await api('GET', '/api/kinh-hen');
+    expect(r.status).toBe(200);
+    expect(r.body.map((d: { ten: string }) => d.ten)).toEqual(['QUÁ HẸN', 'NGÀY MAI', 'TUẦN SAU']);
+  });
+
+  it('nhập Ngày hẹn ở bất kỳ đâu thì đơn xuất hiện ở Kính hẹn, xóa Ngày hẹn thì rời đi', async () => {
+    const { body: don } = await api('POST', '/api/don-kinh', { ten: 'Mới hẹn' });
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'ngayHen', value: '2026-11-30' });
+    expect((await api('GET', '/api/kinh-hen')).body.map((d: { id: string }) => d.id)).toEqual([don.id]);
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'ngayHen', value: '' });
+    expect((await api('GET', '/api/kinh-hen')).body).toEqual([]);
+  });
+});
+
 describe('Danh sách lựa chọn', () => {
   it('có sẵn các giá trị mặc định', async () => {
     const r = await api('GET', '/api/danh-sach');
