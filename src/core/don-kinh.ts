@@ -61,10 +61,11 @@ export function donMoi(id: string, ten: string, ngayDat: string): DonKinh {
 export const DA_TRA = 'Đã trả';
 
 /**
- * Trường bắt buộc (chủ cửa hàng chốt 2026-11-27): thiếu thì ô tô đỏ ở mọi nơi Đơn kính hiển thị,
- * và không Hoàn thành được. Người tư vấn, Người cắt, Phản hồi, ADD, ship, ghi chú không bắt buộc.
+ * Trường cần điền (chủ cửa hàng chốt 2026-11-27): còn trống thì ô tô đỏ ở mọi nơi Đơn kính hiển thị.
+ * Chỉ nhắc, không chặn: không trường nào bắt buộc, kể cả khi Hoàn thành.
+ * Người tư vấn, Người cắt, Phản hồi, ADD, ship, ghi chú không tô đỏ.
  */
-export const TRUONG_BAT_BUOC: readonly TruongSuaDuoc[] = [
+export const TRUONG_CAN_DIEN: readonly TruongSuaDuoc[] = [
   'ten', 'tuoi', 'sdt', 'mp', 'mt', 'hang', 'loai', 'nguon', 'ngayDat', 'ngayHen', 'ttTrong', 'ttKinh',
 ];
 
@@ -72,7 +73,7 @@ const trong = (v: string | undefined) => !v || !v.trim();
 
 export const daHoanThanh = (d: DonKinh) => d.ttKinh === DA_TRA;
 export const laKinhHen = (d: DonKinh) => !d.thungRac && !trong(d.ngayHen) && !daHoanThanh(d);
-export const truongConThieu = (d: DonKinh) => TRUONG_BAT_BUOC.filter((f) => trong(d[f]));
+export const truongConThieu = (d: DonKinh) => TRUONG_CAN_DIEN.filter((f) => trong(d[f]));
 
 export type MucGap = 'qua' | 'gan' | 'sap' | '';
 
@@ -135,13 +136,6 @@ export function denHen(ds: DonKinh[], homNay: string): DonKinh[] {
     .sort((a, b) => b.ngayHen.localeCompare(a.ngayHen));
 }
 
-export type KetQuaHoanThanh = { ok: true; don: DonKinh } | { ok: false; thieu: TruongSuaDuoc[]; loi: string };
-
-export function hoanThanh(d: DonKinh): KetQuaHoanThanh {
-  const thieu = truongConThieu(d);
-  if (thieu.length) return { ok: false, thieu, loi: `Còn thiếu: ${thieu.map((f) => NHAN[f]).join(', ')}` };
-  return { ok: true, don: { ...d, ttKinh: DA_TRA } };
-}
 
 // ---- Danh sách lựa chọn ----
 

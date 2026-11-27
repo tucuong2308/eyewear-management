@@ -44,7 +44,7 @@ Trên một Sheet **thử** (không phải Sheet thật của cửa hàng):
 npm run do-toc-do -- "<Web app URL>" "<Khóa Máy quầy>" --tao-du-lieu
 ```
 
-In trung vị và p90 của "tải danh sách" (1.000 đơn) và "lưu 1 ô". Ghi kết quả vào ADR 0002.
+In trung vị và p90 của "tải danh sách" (1.000 đơn) và "lưu 1 ô". Đạt khi p90 của "tải danh sách" dưới 500 ms. Ghi kết quả vào ADR 0002.
 
 ## Nối Máy quầy với Sheet
 
