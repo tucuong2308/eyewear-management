@@ -256,6 +256,48 @@ describe('Thùng rác', () => {
   });
 });
 
+describe('Lịch sử', () => {
+  it('đếm số đơn theo từng ngày trong tháng, bỏ qua Thùng rác và tháng khác', async () => {
+    await api('POST', '/api/don-kinh', { ten: 'A', ngayDat: '2026-11-03' });
+    await api('POST', '/api/don-kinh', { ten: 'B', ngayDat: '2026-11-03' });
+    await api('POST', '/api/don-kinh', { ten: 'C', ngayDat: '2026-11-15' });
+    await api('POST', '/api/don-kinh', { ten: 'D', ngayDat: '2026-10-31' });
+    const { body: bo } = await api('POST', '/api/don-kinh', { ten: 'E', ngayDat: '2026-11-15' });
+    await api('POST', `/api/don-kinh/${bo.id}/thung-rac`);
+
+    const r = await api('GET', '/api/lich?thang=2026-11');
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ '2026-11-03': 2, '2026-11-15': 1 });
+  });
+
+  it('từ chối tháng sai định dạng', async () => {
+    expect((await api('GET', '/api/lich?thang=11-2026')).status).toBe(400);
+  });
+});
+
+describe('Tổng', () => {
+  it('tìm theo tên không cần dấu, hoặc theo SĐT; mới đặt nhất lên đầu', async () => {
+    const { body: a } = await api('POST', '/api/don-kinh', { ten: 'Nguyễn Văn An', ngayDat: '2026-11-02' });
+    await api('PATCH', `/api/don-kinh/${a.id}`, { field: 'sdt', value: '0987654321' });
+    await api('POST', '/api/don-kinh', { ten: 'Nguyễn Thị Bình', ngayDat: '2026-11-20' });
+    await api('POST', '/api/don-kinh', { ten: 'Trần Chi', ngayDat: '2026-11-10' });
+
+    const ten = (r: { body: { ten: string }[] }) => r.body.map((d) => d.ten);
+    expect(ten(await api('GET', '/api/tong?q=nguyen'))).toEqual(['NGUYỄN THỊ BÌNH', 'NGUYỄN VĂN AN']);
+    expect(ten(await api('GET', '/api/tong?q=654321'))).toEqual(['NGUYỄN VĂN AN']);
+    expect(ten(await api('GET', '/api/tong'))).toEqual(['NGUYỄN THỊ BÌNH', 'TRẦN CHI', 'NGUYỄN VĂN AN']);
+  });
+
+  it('lọc theo tháng và bỏ qua Thùng rác', async () => {
+    await api('POST', '/api/don-kinh', { ten: 'Tháng mười', ngayDat: '2026-10-05' });
+    await api('POST', '/api/don-kinh', { ten: 'Tháng mười một', ngayDat: '2026-11-05' });
+    const { body: bo } = await api('POST', '/api/don-kinh', { ten: 'Bỏ', ngayDat: '2026-11-06' });
+    await api('POST', `/api/don-kinh/${bo.id}/thung-rac`);
+    const r = await api('GET', '/api/tong?thang=2026-11');
+    expect(r.body.map((d: { ten: string }) => d.ten)).toEqual(['THÁNG MƯỜI MỘT']);
+  });
+});
+
 describe('Danh sách lựa chọn', () => {
   it('có sẵn các giá trị mặc định', async () => {
     const r = await api('GET', '/api/danh-sach');

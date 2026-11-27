@@ -92,6 +92,34 @@ export function suCo(ds: DonKinh[]): DonKinh[] {
   return ds.filter(laSuCo).sort((a, b) => b.ngayDat.localeCompare(a.ngayDat));
 }
 
+// ---- Lịch sử và Tổng ----
+
+const THANG = /^\d{4}-\d{2}$/;
+export const laThang = (s: string) => THANG.test(s);
+
+/** Số Đơn kính theo từng Ngày đặt trong một tháng (YYYY-MM), bỏ qua Thùng rác. */
+export function demTheoNgay(ds: DonKinh[], thang: string): Record<string, number> {
+  const dem: Record<string, number> = {};
+  for (const d of ds) if (!d.thungRac && d.ngayDat.startsWith(thang)) dem[d.ngayDat] = (dem[d.ngayDat] ?? 0) + 1;
+  return dem;
+}
+
+/** Bỏ dấu tiếng Việt và viết thường, để tìm "nguyen" ra "NGUYỄN". */
+export function boDau(s: string) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+}
+
+/** Trang Tổng: tìm theo tên (không cần dấu) hoặc SĐT, lọc theo tháng; mới đặt nhất lên đầu. */
+export function timDon(ds: DonKinh[], q: string, thang: string): DonKinh[] {
+  const tu = boDau(q.trim());
+  return ds
+    .map((d, i) => [d, i] as const)
+    .filter(([d]) => !d.thungRac && (!thang || d.ngayDat.startsWith(thang)))
+    .filter(([d]) => !tu || boDau(d.ten).includes(tu) || (/\d/.test(tu) && d.sdt.replace(/\D/g, '').includes(tu.replace(/\D/g, ''))))
+    .sort(([a, i], [b, j]) => b.ngayDat.localeCompare(a.ngayDat) || j - i)
+    .map(([d]) => d);
+}
+
 /** Mọi Kính hẹn; hẹn sớm nhất lên đầu. */
 export function kinhHen(ds: DonKinh[]): DonKinh[] {
   return ds.filter(laKinhHen).sort((a, b) => a.ngayHen.localeCompare(b.ngayHen));
