@@ -1,6 +1,9 @@
 // Giao diện trang Hôm nay (kiểu A của bản thử):
 // bảng nhập Đơn kính hôm nay + bảng Đến hẹn và quá hẹn để bấm Hoàn thành ngay.
-import { NHAN, mucGap, type DonKinh, type TruongSuaDuoc } from '../core/don-kinh.js';
+import {
+  DANH_SACH_CUA_TRUONG, DANH_SACH_THEM_DUOC, NHAN, mucGap,
+  type DanhSach, type DonKinh, type LoaiDanhSach, type TruongSuaDuoc,
+} from '../core/don-kinh.js';
 
 const COT_NHAP: [TruongSuaDuoc, string][] = [
   ['ten', 'w-ten'], ['tuoi', 'w-sm'], ['sdt', 'w-md'], ['mp', 'w-rx'], ['mt', 'w-rx'], ['add', 'w-sm'],
@@ -26,6 +29,9 @@ const S = {
   thongBao: null as ThongBao | null,
   thieu: null as { id: string; truong: TruongSuaDuoc[] } | null,
   focusSau: null as string | null,
+  ds: null as (DanhSach & { goiYLoai: string[] }) | null,
+  /** Ô đang gõ giá trị mới sau khi chọn "Khác…" (data-k của ô đó). */
+  khac: null as string | null,
 };
 
 function homNayTheoMay() {
@@ -54,12 +60,14 @@ async function goi<T>(method: string, path: string, body?: unknown): Promise<T> 
 }
 
 async function taiLai() {
-  const [don, denHen] = await Promise.all([
+  const [don, denHen, ds] = await Promise.all([
     goi<DonKinh[]>('GET', `/api/don-kinh?ngayDat=${S.homNay}`),
     goi<DonKinh[]>('GET', '/api/den-hen'),
+    goi<DanhSach & { goiYLoai: string[] }>('GET', '/api/danh-sach'),
   ]);
   S.don = don;
   S.denHen = denHen;
+  S.ds = ds;
   if (S.thieu && !denHen.some((d) => d.id === S.thieu!.id)) S.thieu = null;
   render();
 }
@@ -125,11 +133,39 @@ async function hoanThanh(id: string) {
   }
 }
 
+async function themGiaTriMoi(k: string, id: string, f: TruongSuaDuoc, loai: LoaiDanhSach, giaTri: string) {
+  S.khac = null;
+  if (!giaTri.trim()) return render();
+  const ds = await luu(() => goi<string[]>('POST', `/api/danh-sach/${loai}`, { giaTri }));
+  if (!ds) return;
+  const v = ds.find((x) => x.toLocaleLowerCase('vi-VN') === giaTri.trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi-VN'));
+  if (v) {
+    S.focusSau = k;
+    await suaO(id, f, v);
+    S.thongBao = { loai: 'ok', noiDung: `Đã thêm “${v}” vào danh sách ${NHAN[f]}. Từ giờ chọn được ở mọi đơn.` };
+    render();
+  }
+}
+
 function o(bang: 'nhap' | 'hen', don: DonKinh, f: TruongSuaDuoc) {
   const k = `${bang}:${don.id}:${f}`;
+  const loai = DANH_SACH_CUA_TRUONG[f];
+  const nhan = `aria-label="${NHAN[f]} của ${esc(don.ten)}"`;
+  if (loai) {
+    const thuoc = `data-id="${don.id}" data-f="${f}" data-k="${k}" ${nhan}`;
+    if (S.khac === k) {
+      return `<input class="cell" ${thuoc} data-khac="${loai}" placeholder="Gõ ${NHAN[f].toLowerCase()} mới rồi Enter">`;
+    }
+    const ds = S.ds?.[loai] ?? [];
+    const v = don[f];
+    const lechDs = v && !ds.includes(v) ? `<option selected>${esc(v)}</option>` : '';
+    const khac = DANH_SACH_THEM_DUOC.includes(loai) ? '<option value="__khac">Khác…</option>' : '';
+    return `<select class="cell" ${thuoc}><option value=""></option>${ds.map((x) => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('')}${lechDs}${khac}</select>`;
+  }
   const type = f === 'ngayDat' || f === 'ngayHen' ? 'date' : 'text';
   const extra = f === 'tuoi' ? 'inputmode="numeric"' : f === 'sdt' ? 'inputmode="tel"' : '';
-  return `<input class="cell ${DO_KINH.has(f) ? 'mono' : ''}" type="${type}" ${extra} data-id="${don.id}" data-f="${f}" data-k="${k}" aria-label="${NHAN[f]} của ${esc(don.ten)}" value="${esc(don[f])}">`;
+  const goiY = f === 'loai' ? 'list="goi-y-loai"' : '';
+  return `<input class="cell ${DO_KINH.has(f) ? 'mono' : ''}" type="${type}" ${extra} ${goiY} data-id="${don.id}" data-f="${f}" data-k="${k}" ${nhan} value="${esc(don[f])}">`;
 }
 
 function bangNhap() {
@@ -180,7 +216,8 @@ function render() {
       ${bangNhap()}
       <h2 class="sec-h">Đến hẹn và quá hẹn <span class="muted">${S.denHen.length} đơn chờ trả${quaHen ? ` · <span class="do">${quaHen} quá hẹn</span>` : ''}</span></h2>
       ${bangDenHen()}
-    </main>`;
+    </main>
+    <datalist id="goi-y-loai">${(S.ds?.goiYLoai ?? []).map((x) => `<option value="${esc(x)}">`).join('')}</datalist>`;
 
   const el = k ? app.querySelector<HTMLInputElement>(`[data-k="${CSS.escape(k)}"]`) : null;
   el?.focus();
@@ -196,6 +233,13 @@ document.addEventListener('change', (e) => {
   }
   const { id, f } = t.dataset;
   if (!id || !f) return;
+  if (t.dataset.khac) return; // xử lý bằng Enter / rời ô bên dưới
+  if (t.value === '__khac') {
+    S.khac = t.dataset.k!;
+    S.focusSau = S.khac;
+    render();
+    return;
+  }
   const don = [...S.don, ...S.denHen].find((d) => d.id === id);
   if (don && don[f as TruongSuaDuoc] === t.value) return;
   // lưu sau khi trình duyệt đã chuyển focus sang ô kế tiếp
@@ -218,8 +262,29 @@ document.addEventListener('click', (e) => {
   }
 });
 
+function xongKhac(t: HTMLInputElement) {
+  const { k, id, f, khac } = t.dataset;
+  if (!k || !id || !f || !khac || S.khac !== k) return;
+  void themGiaTriMoi(k, id, f as TruongSuaDuoc, khac as LoaiDanhSach, t.value);
+}
+
+document.addEventListener('focusout', (e) => {
+  const t = e.target as HTMLInputElement;
+  if (t.dataset?.khac) xongKhac(t);
+});
+
 document.addEventListener('keydown', (e) => {
   const t = e.target as HTMLInputElement;
+  if (t.dataset?.khac && e.key === 'Escape') {
+    S.khac = null;
+    render();
+    return;
+  }
+  if (t.dataset?.khac && e.key === 'Enter') {
+    e.preventDefault();
+    xongKhac(t);
+    return;
+  }
   if (e.key === 'Enter' && t.matches?.('input.cell')) {
     e.preventDefault();
     t.blur();

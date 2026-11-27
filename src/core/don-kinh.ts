@@ -97,3 +97,41 @@ export function hoanThanh(d: DonKinh): KetQuaHoanThanh {
   if (thieu.length) return { ok: false, thieu, loi: `Còn thiếu: ${thieu.map((f) => NHAN[f]).join(', ')}` };
   return { ok: true, don: { ...d, ttKinh: DA_TRA } };
 }
+
+// ---- Danh sách lựa chọn ----
+
+export const DANH_SACH_MAC_DINH = {
+  hang: ['ESSILOR', 'ZEISS', 'FANO', 'HOYA', 'KIỂM SOÁT CẬN THỊ', 'CHEMI', 'IO'],
+  nguon: ['Kính sẵn', 'Ký gửi', 'Kính đặt', 'Đặt đánh'],
+  ttTrong: ['Chưa đặt', 'Đã đặt – đang giao', 'Đã có'],
+  ttKinh: ['Chưa cắt', 'Đã cắt – chưa trả', 'Ship', 'Đã trả'],
+  phanHoi: ['Tốt', 'Không tốt', 'Sự cố', 'Khác'],
+  // Tên nhân viên thật không nằm trong mã nguồn (repo public): thêm qua "Khác…" hoặc tab Danh sách của Sheet.
+  nhanVien: [] as string[],
+} satisfies Record<string, string[]>;
+
+export type LoaiDanhSach = keyof typeof DANH_SACH_MAC_DINH;
+export type DanhSach = Record<LoaiDanhSach, string[]>;
+
+/** Trường nào chọn từ danh sách nào. */
+export const DANH_SACH_CUA_TRUONG: Partial<Record<TruongSuaDuoc, LoaiDanhSach>> = {
+  hang: 'hang', nguon: 'nguon', ttTrong: 'ttTrong', ttKinh: 'ttKinh', phanHoi: 'phanHoi', tuVan: 'nhanVien', cat: 'nhanVien',
+};
+
+/** Danh sách nào cho thêm giá trị mới bằng "Khác…" ngay khi nhập đơn. */
+export const DANH_SACH_THEM_DUOC: readonly LoaiDanhSach[] = ['hang', 'nguon', 'nhanVien'];
+
+export const laLoaiDanhSach = (s: string): s is LoaiDanhSach => s in DANH_SACH_MAC_DINH;
+
+/** Thêm một giá trị vào danh sách: bỏ khoảng trắng thừa, không thêm trùng (không phân biệt hoa thường). */
+export function themVaoDanhSach(ds: readonly string[], giaTri: unknown): { ok: true; ds: string[]; moi: boolean } | { ok: false; loi: string } {
+  const v = String(giaTri ?? '').trim().replace(/\s+/g, ' ');
+  if (!v) return { ok: false, loi: 'Giá trị mới không được để trống' };
+  const daCo = ds.some((x) => x.toLocaleLowerCase('vi-VN') === v.toLocaleLowerCase('vi-VN'));
+  return { ok: true, ds: daCo ? [...ds] : [...ds, v], moi: !daCo };
+}
+
+/** Gợi ý Loại tròng: các loại đã nhập, không trùng, theo thứ tự xuất hiện. */
+export function goiYLoaiTrong(ds: DonKinh[]): string[] {
+  return [...new Set(ds.map((d) => d.loai.trim()).filter(Boolean))];
+}

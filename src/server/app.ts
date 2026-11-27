@@ -3,7 +3,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { DA_TRA, chuanHoa, denHen, hoanThanh, laTruongSuaDuoc } from '../core/don-kinh.js';
+import {
+  DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, denHen, hoanThanh, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
+} from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
 
 export interface ServerOptions {
@@ -56,6 +58,21 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       const ngay = chuanHoa('ngayDat', body.ngayDat || today());
       if (!ngay.ok) return guiJson(res, 400, { loi: ngay.loi });
       return guiJson(res, 201, kho.tao(ten.value, ngay.value));
+    }
+    if (url.pathname === '/api/danh-sach' && req.method === 'GET') {
+      return guiJson(res, 200, kho.danhSach());
+    }
+    const dsm = url.pathname.match(/^\/api\/danh-sach\/([^/]+)$/);
+    if (dsm && req.method === 'POST') {
+      const loai = decodeURIComponent(dsm[1]!);
+      if (!laLoaiDanhSach(loai) || !DANH_SACH_THEM_DUOC.includes(loai)) {
+        return guiJson(res, 400, { loi: `Không thêm được giá trị mới vào danh sách "${loai}"` });
+      }
+      const body = await docJson(req);
+      const kq = themVaoDanhSach(kho.danhSach()[loai], body.giaTri);
+      if (!kq.ok) return guiJson(res, 400, { loi: kq.loi });
+      if (kq.moi) kho.themVaoDanhSach(loai, kq.ds[kq.ds.length - 1]!);
+      return guiJson(res, 201, kho.danhSach()[loai]);
     }
     if (url.pathname === '/api/den-hen' && req.method === 'GET') {
       return guiJson(res, 200, denHen(kho.tatCa(), today()));
