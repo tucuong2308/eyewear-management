@@ -2,7 +2,20 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { networkInterfaces } from 'node:os';
+import { homedir, networkInterfaces } from 'node:os';
+import { spawnSync } from 'node:child_process';
+
+/**
+ * Thư mục Desktop thật của người dùng Windows (kể cả khi Desktop được OneDrive chuyển đi),
+ * để lưu Excel vào Desktop\Sổ Đơn Kính cho nhân viên dễ tìm.
+ */
+export function thuMucDesktop(): string {
+  const r = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', "[Console]::OutputEncoding=[Text.Encoding]::UTF8; [Environment]::GetFolderPath('Desktop')"], {
+    encoding: 'utf8', windowsHide: true, timeout: 10_000,
+  });
+  const p = (r.stdout ?? '').trim();
+  return p && existsSync(p) ? p : join(homedir(), 'Desktop');
+}
 import type { TaiKhoan } from './dang-nhap.js';
 import type { CauHinhSheet } from './kenh-apps-script.js';
 

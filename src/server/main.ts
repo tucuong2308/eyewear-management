@@ -14,7 +14,14 @@ if (ch.moiTao) {
   console.log(`  Tên đăng nhập: ${ch.taiKhoan.ten}  Mật khẩu: ${ch.taiKhoan.matKhau}`);
 }
 
-const server = await startServer({ dbPath: join(dataDir, 'so-don-kinh.db'), port, taiKhoan: ch.taiKhoan });
+const server = await startServer({
+  dbPath: join(dataDir, 'so-don-kinh.db'),
+  port,
+  taiKhoan: ch.taiKhoan,
+  // chế độ dev: Excel vào thư mục dữ liệu, không làm rối Desktop của máy dev
+  thuMucExcel: process.env.THU_MUC_EXCEL ?? join(dataDir, 'excel'),
+  ghiLog: (s) => console.log(s),
+});
 console.log(`Sổ Đơn Kính đang chạy: http://localhost:${server.port}`);
 for (const a of diaChiMangNoiBo()) console.log(`  Trên điện thoại cùng Wi-Fi: http://${a}:${server.port}`);
 

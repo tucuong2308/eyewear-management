@@ -9,7 +9,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { startServer } from '../server/app.js';
-import { diaChiMangNoiBo, docCauHinh } from '../server/cau-hinh.js';
+import { diaChiMangNoiBo, docCauHinh, thuMucDesktop } from '../server/cau-hinh.js';
 import { KenhAppsScript } from '../server/kenh-apps-script.js';
 
 const TEN = 'Sổ Đơn Kính';
@@ -91,6 +91,8 @@ async function chayNen() {
     port: CONG,
     taiKhoan: ch.taiKhoan,
     docTepGiaoDien: docTepNhung(),
+    // File Excel cho nhân viên dễ tìm; THU_MUC_EXCEL chỉ dùng khi thử nghiệm
+    thuMucExcel: process.env.THU_MUC_EXCEL ?? join(thuMucDesktop(), 'Sổ Đơn Kính'),
     kenhSheet: ch.sheet ? new KenhAppsScript(ch.sheet) : undefined,
     ghiLog,
   });
