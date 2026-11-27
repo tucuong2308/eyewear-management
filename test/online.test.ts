@@ -56,6 +56,12 @@ describe('Bản online (Worker + D1)', () => {
     expect(dn.setCookie).toMatch(/Secure/);
   });
 
+  it('mật khẩu cấu hình rỗng (đặt nhầm) thì không ai đăng nhập được, kể cả gõ rỗng', async () => {
+    env.MAT_KHAU = '';
+    expect((await api('POST', '/api/dang-nhap', { ten: 'cuahang', matKhau: '' })).status).toBe(401);
+    expect((await api('POST', '/api/dang-nhap', { ten: 'cuahang' })).status).toBe(401);
+  });
+
   it('cùng API với exe: tạo, sửa, Kính hẹn, Hoàn thành, Thùng rác, danh sách; "Mở trên máy khác" là link trang web', async () => {
     await api('POST', '/api/dang-nhap', TK);
     const { body: don } = await api('POST', '/api/don-kinh', { ten: 'Trực tuyến', ngayDat: '2026-11-27' });
@@ -79,6 +85,7 @@ describe('Bản online (Worker + D1)', () => {
     // Sheet giả sau một Web App giả (cùng phần xử lý Apps Script thật)
     const b = new BangTinhGia();
     khoiTao(b, () => 'k');
+    b.datCaiDat(TAB.caiDat, CAI_DAT.matKhau, TK.matKhau);
     const khoa = docCaiDat(b)[CAI_DAT.khoa]!;
     http = createServer(async (req, res) => {
       let s = '';

@@ -37,7 +37,9 @@ function chuanBi(env: Env) {
     daKhoiTao.set(env.DB, san);
   }
   const dongBo = env.SHEET_URL && env.SHEET_KHOA
-    ? new DongBo(kho, new KenhAppsScript({ url: env.SHEET_URL, khoa: env.SHEET_KHOA }), Date.now, (s) => console.log(s))
+    ? new DongBo(kho, new KenhAppsScript({ url: env.SHEET_URL, khoa: env.SHEET_KHOA }), Date.now, (s) => console.log(s), {
+      ten: env.TEN_DANG_NHAP, matKhau: env.MAT_KHAU,
+    })
     : undefined;
   return { kho, dongBo, san };
 }

@@ -21,8 +21,10 @@ export interface BangTinh {
   /** Tạo tab với hàng tiêu đề; ô luôn giữ dạng chữ (không tự đổi ngày/số), trừ các cột `cotTick` là ô tick. */
   taoTab(ten: string, tieuDe: string[], tuyChon?: { an?: boolean; cotTick?: number[] }): void;
   doc(ten: string): string[][];
-  /** Ghi một vùng chữ nhật bắt đầu ở hàng `hangDau`, cột 0 (một lần gọi Google). */
-  ghiVung(ten: string, hangDau: number, giaTri: string[][]): void;
+  /** Ghi một vùng chữ nhật bắt đầu ở hàng `hangDau`, cột `cotDau` (mặc định 0), một lần gọi Google. */
+  ghiVung(ten: string, hangDau: number, giaTri: string[][], cotDau?: number): void;
+  /** Khóa một cột (trừ hàng tiêu đề): chỉ chủ Sheet (và script chạy bằng tài khoản chủ) sửa được. Chạy lại an toàn. */
+  khoaCot(ten: string, cot: number, moTa: string): void;
   /** Thêm các hàng vào cuối tab (một lần gọi Google). */
   themHang(ten: string, hang: string[][]): void;
   /** Đặt công thức vào một ô. */
@@ -30,10 +32,13 @@ export interface BangTinh {
 }
 
 const COT_TICK = COT_TONG.flatMap((c, i) => (c.loai === 'tick' ? [i] : []));
+export const KHOA_MA_DON = 'MÃ ĐƠN do app tự điền, không sửa tay';
 
 /** Tạo các tab còn thiếu; lần đầu tạo khóa Máy quầy và mật khẩu ngẫu nhiên. Chạy lại an toàn. */
 export function khoiTao(b: BangTinh, ngauNhien: () => string) {
   if (!b.coTab(TAB.don)) b.taoTab(TAB.don, TIEU_DE_TONG, { cotTick: COT_TICK });
+  // Mã đơn do app tạo, nối một đơn ở exe, bản online và Sheet: không cho sửa nhầm (#13)
+  b.khoaCot(TAB.don, COT_TONG.findIndex((c) => c.loai === 'id'), KHOA_MA_DON);
   for (const x of TAB_XEM) {
     if (!b.coTab(x.ten)) b.taoTab(x.ten, x.tieuDe);
     // luôn ghi lại công thức: chạy lại caiDat là sửa được tab lọc bị hỏng
@@ -128,8 +133,11 @@ export function ghiNhanSuaTay(b: BangTinh, tab: string, hang: number, cot: numbe
   if (!d.id) return;
   if (c.loai === 'tick') {
     d.nguon = laDung(giaTri) ? c.nguon : d.nguon === c.nguon ? '' : d.nguon;
+    // Chỉ ghi ô đổi (các ô tick, NGUỒN KHÁC): người sửa có thể không có quyền ghi cột MÃ ĐƠN đã khóa
     const moi = hangTheoTieuDe(tieuDe, d, dong);
-    if (moi.some((v, i) => v !== (dong[i] ?? ''))) b.ghiVung(TAB.don, hang, [moi]);
+    moi.forEach((v, i) => {
+      if (v !== (dong[i] ?? '')) b.ghiVung(TAB.don, hang, [[v]], i);
+    });
   }
   const v = truong === 'nguon' ? d.nguon : truong === 'thungRac' ? (d.thungRac ? '1' : '') : giaTri.trim();
   b.themHang(TAB.nhatKy, [[d.id, truong, v, luc]]);
@@ -144,6 +152,10 @@ export function xuLyYeuCau(b: BangTinh, body: unknown, luc: string): Record<stri
     day(b, Array.isArray(y.thayDoi) ? y.thayDoi : [], luc);
     return { ok: true };
   }
-  if (y.hanhDong === 'keo') return { ok: true, ...keo(b, Number(y.moc ?? 0)) };
+  if (y.hanhDong === 'keo') {
+    // Tài khoản trong tab Cài đặt: exe và bản online dùng làm tài khoản đăng nhập (#13)
+    const cd = docCaiDat(b);
+    return { ok: true, ...keo(b, Number(y.moc ?? 0)), taiKhoan: { ten: cd[CAI_DAT.ten] ?? '', matKhau: cd[CAI_DAT.matKhau] ?? '' } };
+  }
   return { ok: false, loi: `Không rõ hành động "${y.hanhDong}"` };
 }

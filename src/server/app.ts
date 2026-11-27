@@ -60,7 +60,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const today = opts.today ?? homNayTheoMay;
   const webDir = opts.webDir ?? join(ROOT, 'dist', 'web');
   const bayGio = opts.bayGio ?? Date.now;
-  const dongBo = opts.kenhSheet ? new DongBo(kho, opts.kenhSheet, bayGio, opts.ghiLog) : undefined;
+  const dongBo = opts.kenhSheet ? new DongBo(kho, opts.kenhSheet, bayGio, opts.ghiLog, opts.taiKhoan) : undefined;
   const moiTruong: MoiTruongApi = {
     kho, taiKhoan: opts.taiKhoan, today, bayGio, coSheet: !!dongBo,
     // Link để mở app trên thiết bị khác cùng mạng (điện thoại, máy khác)

@@ -48,11 +48,11 @@ Lệnh này tạo lối tắt trong thư mục Startup để exe tự chạy cù
 ```sh
 npx wrangler login          # một lần
 npm run deploy:online       # build giao diện rồi triển khai
-npx wrangler secret put MAT_KHAU   # đổi mật khẩu đăng nhập online (tương tự TEN_DANG_NHAP, SHEET_URL, SHEET_KHOA)
+npx wrangler secret put SHEET_KHOA # đổi khóa Máy quầy (tương tự SHEET_URL; TEN_DANG_NHAP, MAT_KHAU chỉ dùng khi chưa kéo được tài khoản từ Sheet)
 npx wrangler tail           # xem nhật ký đang chạy
 ```
 
-Bí mật (tài khoản, URL Web App, Khóa Máy quầy) là Worker secret, không nằm trong repo hay trong trình duyệt.
+**Đổi tên đăng nhập / mật khẩu (cả exe lẫn online): sửa tab Cài đặt của Google Sheet.** Sau lần đồng bộ kế tiếp (khoảng 1 phút) tài khoản mới có hiệu lực và mọi thiết bị bị đăng xuất. App chỉ lưu mật khẩu dạng băm. Bí mật (URL Web App, Khóa Máy quầy) là Worker secret, không nằm trong repo hay trong trình duyệt.
 
 ## Chuyển dữ liệu tháng 11/2026
 

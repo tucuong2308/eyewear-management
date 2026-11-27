@@ -178,6 +178,10 @@ export class KhoD1 implements Kho {
     return false;
   }
 
+  async xoaMoiPhien() {
+    await this.db.prepare('DELETE FROM phien').run();
+  }
+
   async xoaPhien(maBam: string) {
     await this.db.prepare('DELETE FROM phien WHERE ma_bam = ?').bind(maBam).run();
   }

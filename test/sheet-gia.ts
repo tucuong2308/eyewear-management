@@ -6,6 +6,8 @@ export class SheetGia implements KenhSheet {
   coMang = true;
   /** Mỗi Đơn kính một dòng: mã đơn → các ô. */
   dong = new Map<string, Record<string, string>>();
+  /** Tài khoản trong tab Cài đặt; undefined = Sheet cũ chưa gửi tài khoản. */
+  taiKhoan?: { ten: string; matKhau: string };
   private nhatKy: { rev: number; o: ThayDoiO }[] = [];
   private rev = 0;
 
@@ -16,7 +18,7 @@ export class SheetGia implements KenhSheet {
 
   async keo(moc: number) {
     this.kiemTraMang();
-    return { thayDoi: this.nhatKy.filter((x) => x.rev > moc).map((x) => x.o), moc: this.rev };
+    return { thayDoi: this.nhatKy.filter((x) => x.rev > moc).map((x) => x.o), moc: this.rev, taiKhoan: this.taiKhoan };
   }
 
   /** Ai đó sửa trên Sheet hoặc trên bản web online. */
