@@ -53,6 +53,9 @@ const S = {
   thangTong: homNayTheoMay().slice(0, 7),
   tong: [] as DonKinh[],
   trang: trangTuHash(),
+  /** null = chưa biết; false = phải hiện màn hình đăng nhập. */
+  daDangNhap: null as boolean | null,
+  loiDangNhap: '',
   trangThai: '' as '' | 'dang' | 'ok' | 'loi',
   thongBao: null as ThongBao | null,
   thieu: null as { id: string; bang: Bang; truong: TruongSuaDuoc[] } | null,
@@ -88,6 +91,10 @@ async function goi<T>(method: string, path: string, body?: unknown): Promise<T> 
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json();
+  if (res.status === 401 && path !== '/api/dang-nhap') {
+    S.daDangNhap = false;
+    render();
+  }
   if (!res.ok) throw new LoiApi(data.loi ?? `Lỗi ${res.status}`, res.status, data);
   return data as T;
 }
@@ -104,6 +111,7 @@ async function taiLai() {
     goi<DonKinh[]>('GET', `/api/don-kinh?ngayDat=${S.ngayChon}`),
     goi<DonKinh[]>('GET', `/api/tong?q=${encodeURIComponent(S.tim)}&thang=${S.thangTong}`),
   ]);
+  S.daDangNhap = true;
   S.lichDem = lichDem;
   S.donNgayChon = donNgayChon;
   S.tong = tong;
@@ -343,8 +351,40 @@ function trangKinhHen() {
 
 let viTriTim: number | null = null;
 
+function manHinhDangNhap() {
+  return `<div class="dang-nhap wrap"><form data-act="dang-nhap">
+    <h1>Sổ Đơn Kính</h1><p class="muted">Đăng nhập bằng tài khoản chung của cửa hàng</p>
+    <label for="dn-ten">Tên đăng nhập</label><input id="dn-ten" name="ten" autocomplete="username" required>
+    <label for="dn-mk">Mật khẩu</label><input id="dn-mk" name="matKhau" type="password" autocomplete="current-password" required>
+    ${S.loiDangNhap ? `<div class="flash loi" role="alert">${esc(S.loiDangNhap)}</div>` : ''}
+    <button class="btn chinh" type="submit">Đăng nhập</button>
+    <p class="muted nho">Máy này sẽ nhớ đăng nhập trong 30 ngày.</p>
+  </form></div>`;
+}
+
+async function dangNhap(form: HTMLFormElement) {
+  const fd = new FormData(form);
+  try {
+    await goi('POST', '/api/dang-nhap', { ten: fd.get('ten'), matKhau: fd.get('matKhau') });
+    S.loiDangNhap = '';
+    await taiLai();
+  } catch (e) {
+    S.loiDangNhap = (e as Error).message;
+    render();
+  }
+}
+
 function render() {
   const app = document.getElementById('app')!;
+  if (S.daDangNhap === false) {
+    const dangGo = document.activeElement instanceof HTMLInputElement && app.contains(document.activeElement);
+    if (!dangGo || S.loiDangNhap) {
+      app.innerHTML = manHinhDangNhap();
+      app.querySelector<HTMLInputElement>('#dn-ten')?.focus();
+    }
+    return;
+  }
+  if (S.daDangNhap === null) return;
   const dangFocus = document.activeElement as HTMLElement | null;
   viTriTim = dangFocus instanceof HTMLInputElement && dangFocus.dataset.k === 'tim' ? dangFocus.selectionStart : null;
   const k = S.focusSau ?? dangFocus?.dataset?.k;
@@ -367,7 +407,7 @@ function render() {
     return `<a href="#${t}" class="${S.trang === t ? 'on' : ''}" ${S.trang === t ? 'aria-current="page"' : ''}>${nhan}${dem}</a>`;
   }).join('');
   app.innerHTML = `
-    <div class="top"><div class="wrap row"><span class="brand">Sổ Đơn Kính</span><nav class="tabs">${tabs}</nav></div></div>
+    <div class="top"><div class="wrap row"><span class="brand">Sổ Đơn Kính</span><nav class="tabs">${tabs}</nav><span class="grow"></span><button class="btn small ghost" data-act="dang-xuat">Đăng xuất</button></div></div>
     <main class="wrap">
       <div class="page-h">${tieuDe}<span class="grow"></span>
         <span class="saving ${S.trangThai}" aria-live="polite">${trangThai}</span></div>
@@ -431,6 +471,12 @@ document.addEventListener('click', (e) => {
     void suaO(b.dataset.id, 'phanHoi', don?.phanHoi === v ? '' : v);
   }
   if ((act === 'thung-rac' || act === 'khoi-phuc') && b.dataset.id) void datThungRac(b.dataset.id, act === 'thung-rac');
+  if (act === 'dang-xuat') {
+    void goi('POST', '/api/dang-xuat').finally(() => {
+      S.daDangNhap = false;
+      render();
+    });
+  }
   if (act === 'chon-ngay' && b.dataset.ngay) {
     S.ngayChon = b.dataset.ngay;
     void taiLai();
@@ -484,6 +530,13 @@ document.addEventListener('keydown', (e) => {
 function tatCaDangHien() {
   return [...S.don, ...S.kinhHen, ...S.suCo, ...S.thungRac, ...S.donNgayChon, ...S.tong];
 }
+
+document.addEventListener('submit', (e) => {
+  const f = e.target as HTMLFormElement;
+  if (f.dataset.act !== 'dang-nhap') return;
+  e.preventDefault();
+  void dangNhap(f);
+});
 
 let henTim: ReturnType<typeof setTimeout> | undefined;
 document.addEventListener('input', (e) => {

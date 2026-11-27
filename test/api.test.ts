@@ -5,33 +5,80 @@ import { join } from 'node:path';
 import { startServer, type RunningServer } from '../src/server/app.js';
 
 const HOM_NAY = '2026-11-27';
+const TAI_KHOAN = { ten: 'cuahang', matKhau: 'mat-khau-test' };
 
 let dir: string;
 let server: RunningServer;
 let base: string;
+let cookie = '';
+let bayGio = Date.parse('2026-11-27T09:00:00');
 
 async function startAt(dbPath: string) {
-  server = await startServer({ dbPath, port: 0, host: '127.0.0.1', today: () => HOM_NAY });
+  server = await startServer({
+    dbPath, port: 0, host: '127.0.0.1', today: () => HOM_NAY, taiKhoan: TAI_KHOAN, bayGio: () => bayGio,
+  });
   base = `http://127.0.0.1:${server.port}`;
 }
 
 async function api(method: string, path: string, body?: unknown) {
-  const res = await fetch(base + path, {
-    method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const headers: Record<string, string> = {};
+  if (body) headers['content-type'] = 'application/json';
+  if (cookie) headers.cookie = cookie;
+  const res = await fetch(base + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const setCookie = res.headers.get('set-cookie');
+  if (setCookie) cookie = setCookie.split(';')[0]!.endsWith('=') ? '' : setCookie.split(';')[0]!;
   return { status: res.status, body: await res.json() };
 }
 
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'so-don-kinh-test-'));
+  bayGio = Date.parse('2026-11-27T09:00:00');
+  cookie = '';
   await startAt(join(dir, 'test.db'));
+  expect((await api('POST', '/api/dang-nhap', TAI_KHOAN)).status).toBe(200);
 });
 
 afterEach(async () => {
   await server.close();
   rmSync(dir, { recursive: true, force: true });
+});
+
+describe('Đăng nhập', () => {
+  it('chưa đăng nhập thì mọi API bị chặn', async () => {
+    cookie = '';
+    for (const [m, p] of [['GET', '/api/don-kinh'], ['POST', '/api/don-kinh'], ['GET', '/api/kinh-hen'], ['GET', '/api/danh-sach']]) {
+      expect((await api(m!, p!, m === 'POST' ? { ten: 'x' } : undefined)).status, p).toBe(401);
+    }
+  });
+
+  it('sai mật khẩu hoặc sai tên đăng nhập thì báo lỗi, không cấp phiên', async () => {
+    cookie = '';
+    const r = await api('POST', '/api/dang-nhap', { ten: 'cuahang', matKhau: 'sai' });
+    expect(r.status).toBe(401);
+    expect(r.body.loi).toMatch(/mật khẩu/i);
+    expect((await api('POST', '/api/dang-nhap', { ten: 'khac', matKhau: TAI_KHOAN.matKhau })).status).toBe(401);
+    expect((await api('GET', '/api/don-kinh')).status).toBe(401);
+  });
+
+  it('phiên còn hạn được chấp nhận, kể cả sau khi khởi động lại exe', async () => {
+    bayGio += 29 * 864e5;
+    await server.close();
+    await startAt(join(dir, 'test.db'));
+    expect((await api('GET', '/api/phien')).body).toEqual({ ten: 'cuahang' });
+    expect((await api('GET', '/api/don-kinh')).status).toBe(200);
+  });
+
+  it('phiên quá 30 ngày thì phải đăng nhập lại', async () => {
+    bayGio += 31 * 864e5;
+    expect((await api('GET', '/api/don-kinh')).status).toBe(401);
+  });
+
+  it('đăng xuất thì phiên hết hiệu lực', async () => {
+    const truoc = cookie;
+    expect((await api('POST', '/api/dang-xuat')).status).toBe(200);
+    cookie = truoc; // dù còn giữ cookie cũ
+    expect((await api('GET', '/api/don-kinh')).status).toBe(401);
+  });
 });
 
 describe('Tạo Đơn kính', () => {
