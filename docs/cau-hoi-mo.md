@@ -9,4 +9,4 @@
 
 ## Còn mở
 
-- **Tốc độ Apps Script**: đo thử (1.000 đơn giả, mỗi thao tác 20 lần) trước khi chốt ADR 0002. Đạt khi p90 của "tải danh sách" dưới 500 ms (đây là thao tác người dùng phải chờ; "lưu 1 ô" chạy ngầm nên chỉ ghi lại để tham khảo). Không đạt thì chuyển sang phương án dự phòng.
+- (Không còn câu hỏi mở. Kết quả đo tốc độ Apps Script: không đạt, xem ADR 0002.)

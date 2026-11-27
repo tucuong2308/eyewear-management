@@ -19,7 +19,8 @@ const kq = await build({
 });
 
 // Apps Script chỉ gọi được hàm khai báo ở cấp cao nhất
-const HAM = ['doPost', 'doGet', 'onEdit', 'caiDat', 'saoLuuHangDem'];
+// caiDat đứng đầu: ô chọn hàm của trình soạn Apps Script mặc định chọn hàm đầu tiên
+const HAM = ['caiDat', 'doPost', 'doGet', 'onEdit', 'saoLuuHangDem'];
 const boc = HAM.map((h) => `function ${h}(e) { return __SDK.${h}(e); }`).join('\n');
 writeFileSync(join(OUT, 'Code.js'), `// Tạo bởi scripts/build-apps-script.mjs, đừng sửa tay.\n${kq.outputFiles[0].text}\n${boc}\n`);
 copyFileSync(join('apps-script', 'appsscript.json'), join(OUT, 'appsscript.json'));

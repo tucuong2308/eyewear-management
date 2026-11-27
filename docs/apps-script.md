@@ -27,12 +27,18 @@ Code Apps Script nằm ở `src/apps-script/`. Phần xử lý (`xu-ly.ts`) có 
    cd apps-script && npx @google/clasp push --force && cd ..
    ```
 
-4. Mở Apps Script (`cd apps-script && npx @google/clasp open-script`), chọn hàm **caiDat**, bấm **Run**, cấp quyền. Hàm này:
+4. Mở Apps Script (`cd apps-script && npx @google/clasp open-script`), kiểm tra ô chọn hàm đang là **caiDat** (hàm đầu tiên), bấm **Run**, cấp quyền. Nhật ký thực thi in Khóa Máy quầy. Hàm này:
    - tạo các tab Đơn kính, Danh sách, Cài đặt và tab ẩn \_Nhật ký;
    - tạo **khóa Máy quầy** và mật khẩu ngẫu nhiên trong tab Cài đặt;
    - đặt lịch sao lưu 23:00 hằng đêm vào thư mục Drive "Sổ Đơn Kính - sao lưu" (giữ 30 bản).
 
-5. Triển khai Web App: **Deploy → New deployment → Web app**, Execute as: *Me*, Who has access: *Anyone*. Chép **Web app URL**.
+5. Triển khai Web App (cấu hình Execute as *Me*, Who has access *Anyone* đã nằm trong `appsscript.json`):
+
+   ```sh
+   cd apps-script && npx @google/clasp create-deployment && cd ..
+   ```
+
+   Web app URL là `https://script.google.com/macros/s/<mã triển khai in ra>/exec`. Sau mỗi lần `clasp push`, cập nhật bản triển khai bằng `npx @google/clasp update-deployment <mã triển khai>`.
 
    Web App mở cho mọi người nhưng mọi yêu cầu phải mang đúng khóa Máy quầy; không có khóa thì bị từ chối.
 
