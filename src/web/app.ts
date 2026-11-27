@@ -323,20 +323,27 @@ function chipDon(d: DonKinh) {
   if (d.ngayHen && d.ttKinh !== 'Đã trả') chip.push(nhanMuc(d));
   chip.push(`<span class="chip ${d.ttKinh === 'Đã trả' ? 'xong' : 'tron'}">${esc(d.ttKinh)}</span>`);
   if (d.phanHoi === 'Sự cố') chip.push('<span class="chip qua">Sự cố</span>');
-  const thieu = truongConThieu(d);
-  if (thieu.length) chip.push(`<span class="chip qua" title="Còn thiếu: ${thieu.map((f) => NHAN[f]).join(', ')}">Thiếu ${thieu.length}</span>`);
   return chip.join('');
+}
+
+/** Một mục trên thẻ: có giá trị thì hiện bình thường; trường bắt buộc còn trống thì chỉ mục đó chữ đỏ. */
+function mucThe(d: DonKinh, f: TruongSuaDuoc, hien: (v: string) => string) {
+  const v = d[f];
+  if (v.trim()) return hien(esc(v));
+  return truongConThieu(d).includes(f) ? `<span class="thieu-chu">${NHAN[f]}: thiếu</span>` : '';
 }
 
 function danhSachThe(rows: DonKinh[], coHoanThanh: boolean, trong: string, bang: Bang = 'nhap') {
   if (!rows.length) return `<div class="empty">${trong}</div>`;
+  const noi = (...phan: string[]) => phan.filter(Boolean).join(' · ');
   return `<div class="ds-the">${rows.map((d) => `
-    <div class="the u-${mucGap(d, S.homNay)} ${truongConThieu(d).length ? 'co-thieu' : ''}">
+    <div class="the u-${mucGap(d, S.homNay)}">
       <button type="button" class="the-than" data-act="mo" data-id="${d.id}">
         <span class="ten">${esc(d.ten)}</span>
-        <span class="phu">${[d.tuoi && `${esc(d.tuoi)} tuổi`, esc(d.sdt) || 'chưa có SĐT', `đặt ${ngayNgan(d.ngayDat)}`].filter(Boolean).join(' · ')}</span>
-        <span class="do-kinh mono">MP ${esc(d.mp) || '–'} · MT ${esc(d.mt) || '–'}</span>
-        ${d.hang || d.loai ? `<span class="phu">${esc(d.hang)} ${esc(d.loai)}</span>` : ''}
+        <span class="phu">${noi(mucThe(d, 'tuoi', (v) => `${v} tuổi`), mucThe(d, 'sdt', (v) => v), `đặt ${ngayNgan(d.ngayDat)}`, mucThe(d, 'ngayHen', (v) => `hẹn ${ngayNgan(v)}`))}</span>
+        <span class="do-kinh mono">${noi(mucThe(d, 'mp', (v) => `MP ${v}`), mucThe(d, 'mt', (v) => `MT ${v}`))}</span>
+        <span class="phu">${noi(mucThe(d, 'hang', (v) => v), mucThe(d, 'loai', (v) => v), mucThe(d, 'nguon', (v) => v))}</span>
+        ${mucThe(d, 'ttTrong', () => '') || mucThe(d, 'ttKinh', () => '') ? `<span class="phu">${noi(mucThe(d, 'ttTrong', () => ''), mucThe(d, 'ttKinh', () => ''))}</span>` : ''}
       </button>
       <div class="the-chan">${chipDon(d)}<span class="grow"></span>
         ${d.thungRac
