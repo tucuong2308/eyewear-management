@@ -227,7 +227,8 @@ const Logic = (() => {
   }
   const byDay = (orders, day) => orders.filter(o => !o.trashed && o.ngayDat === day);
   const kinhHen = (orders, today) => orders.filter(isKinhHen).sort((a, b) => a.ngayHen.localeCompare(b.ngayHen));
-  const denHen = (orders, today) => kinhHen(orders, today).filter(o => o.ngayHen <= today);
+  // gần hôm nay nhất lên trước: hẹn hôm nay, rồi quá 1 ngày, quá 2 ngày...
+  const denHen = (orders, today) => kinhHen(orders, today).filter(o => o.ngayHen <= today).reverse();
   const suCo = orders => orders.filter(isSuCo);
   const trash = orders => orders.filter(o => o.trashed);
   const all = (orders, q, month) => {
