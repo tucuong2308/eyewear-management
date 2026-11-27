@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startServer, type RunningServer } from '../src/server/app.js';
@@ -12,10 +12,16 @@ let server: RunningServer;
 let base: string;
 let cookie = '';
 let bayGio = Date.parse('2026-11-27T09:00:00');
+/** Giả lập file Excel đang mở: Windows từ chối đổi tên đè lên file đang mở. */
+let fileDangMo = false;
+const doiTenFile = (tu: string, den: string) => {
+  if (fileDangMo) throw Object.assign(new Error('EBUSY'), { code: 'EBUSY' });
+  renameSync(tu, den);
+};
 
-async function startAt(dbPath: string) {
+async function startAt(fileDuLieu: string) {
   server = await startServer({
-    dbPath, port: 0, host: '127.0.0.1', today: () => HOM_NAY, taiKhoan: TAI_KHOAN, bayGio: () => bayGio,
+    fileDuLieu, doiTenFile, thuMucSaoLuu: join(dir, 'Sao lưu'), port: 0, host: '127.0.0.1', today: () => HOM_NAY, taiKhoan: TAI_KHOAN, bayGio: () => bayGio,
     diaChiMang: () => ['192.168.1.20'],
   });
   base = `http://127.0.0.1:${server.port}`;
@@ -35,7 +41,8 @@ beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'so-don-kinh-test-'));
   bayGio = Date.parse('2026-11-27T09:00:00');
   cookie = '';
-  await startAt(join(dir, 'test.db'));
+  fileDangMo = false;
+  await startAt(join(dir, 'So-don-kinh.xlsx'));
   expect((await api('POST', '/api/dang-nhap', TAI_KHOAN)).status).toBe(200);
 });
 
@@ -64,7 +71,7 @@ describe('Đăng nhập', () => {
   it('phiên còn hạn được chấp nhận, kể cả sau khi khởi động lại exe', async () => {
     bayGio += 29 * 864e5;
     await server.close();
-    await startAt(join(dir, 'test.db'));
+    await startAt(join(dir, 'So-don-kinh.xlsx'));
     expect((await api('GET', '/api/phien')).body).toEqual({ ten: 'cuahang' });
     expect((await api('GET', '/api/don-kinh')).status).toBe(200);
   });
@@ -408,12 +415,31 @@ describe('Danh sách theo ngày', () => {
   });
 
   it('dữ liệu còn nguyên sau khi khởi động lại exe', async () => {
-    const dbPath = join(dir, 'test.db');
     await api('POST', '/api/don-kinh', { ten: 'Bền Vững' });
     await server.close();
-    await startAt(dbPath);
+    await startAt(join(dir, 'So-don-kinh.xlsx'));
     const r = await api('GET', `/api/don-kinh?ngayDat=${HOM_NAY}`);
     expect(r.body.map((d: { ten: string }) => d.ten)).toEqual(['BỀN VỮNG']);
+  });
+});
+
+describe('File Excel là dữ liệu chính', () => {
+  it('file đang mở trong Excel: thay đổi bị từ chối với lời nhắc đóng Excel, dữ liệu không lệch', async () => {
+    const { body: don } = await api('POST', '/api/don-kinh', { ten: 'Đang Mở' });
+    fileDangMo = true;
+    const r = await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'sdt', value: '0912' });
+    expect(r.status).toBe(423);
+    expect(r.body.loi).toMatch(/Đóng Excel rồi thử lại/);
+    expect((await api('POST', '/api/don-kinh', { ten: 'Khác' })).status).toBe(423);
+    const ds = (await api('GET', `/api/don-kinh?ngayDat=${HOM_NAY}`)).body;
+    expect(ds.map((d: { ten: string; sdt: string }) => [d.ten, d.sdt])).toEqual([['ĐANG MỞ', '']]);
+
+    fileDangMo = false;
+    expect((await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'sdt', value: '0912' })).body.sdt).toBe('0912');
+  });
+
+  it('khởi động thì sao lưu file của hôm nay vào thư mục Sao lưu', () => {
+    expect(existsSync(join(dir, 'Sao lưu', `So-don-kinh-${HOM_NAY}.xlsx`))).toBe(true);
   });
 });
 

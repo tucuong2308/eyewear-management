@@ -123,7 +123,7 @@ describe('Từ đầu đến cuối: exe ↔ HTTP ↔ phần xử lý Apps Scrip
     dir = mkdtempSync(join(tmpdir(), 'so-don-kinh-e2e-'));
     const tk = { ten: 'cuahang', matKhau: 'mk' };
     const server = await startServer({
-      dbPath: join(dir, 'e2e.db'), port: 0, host: '127.0.0.1', today: () => '2026-11-27', taiKhoan: tk,
+      fileDuLieu: join(dir, 'So-don-kinh.xlsx'), port: 0, host: '127.0.0.1', today: () => '2026-11-27', taiKhoan: tk,
       kenhSheet: new KenhAppsScript({ url, khoa }), chuKyDongBo: 0,
     });
     try {

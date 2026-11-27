@@ -23,8 +23,7 @@ await build({
   target: 'node22',
   format: 'cjs',
   outfile: join(OUT, 'so-don-kinh.cjs'),
-  // import.meta.url không có trong CommonJS
-  // Ẩn cảnh báo "SQLite is experimental" của Node; import.meta.url không có trong CommonJS
+  // Ẩn cảnh báo "experimental" của Node; import.meta.url không có trong CommonJS
   banner: { js: 'process.removeAllListeners("warning"); const __import_meta_url = require("node:url").pathToFileURL(__filename).href;' },
   define: { 'import.meta.url': '__import_meta_url' },
   logLevel: 'warning',

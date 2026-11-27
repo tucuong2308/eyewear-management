@@ -1,13 +1,13 @@
 // Đồng bộ Máy quầy ↔ Google Sheet (ADR 0003): đẩy các ô đã sửa ở local (local thắng), rồi kéo các ô khác về.
 import type { KenhSheet } from '../core/dong-bo.js';
-import type { KhoDonKinh } from './kho.js';
+import type { KhoExcel } from './kho-excel.js';
 
 export class DongBo {
   private dangChay: Promise<void> | null = null;
   private hen: ReturnType<typeof setInterval> | null = null;
 
   constructor(
-    private kho: KhoDonKinh,
+    private kho: KhoExcel,
     private kenh: KenhSheet,
     private bayGio: () => number,
     private ghiLog: (s: string) => void = () => {},
@@ -38,17 +38,16 @@ export class DongBo {
       const cho = this.kho.choDay();
       if (cho.length) {
         await this.kenh.day(cho.map(({ id, truong, giaTri }) => ({ id, truong, giaTri })));
-        this.kho.xoaChoDay(cho);
+        await this.kho.xoaChoDay(cho);
       }
       const moc = Number(this.kho.trangThai('mocKeo') ?? 0);
       const { thayDoi, moc: mocMoi } = await this.kenh.keo(moc);
-      this.kho.apDungTuSheet(thayDoi);
-      this.kho.datTrangThai('mocKeo', String(mocMoi));
-      this.kho.datTrangThai('lanCuoiThanhCong', String(this.bayGio()));
-      this.kho.datTrangThai('loiCuoi', '');
+      await this.kho.apDungTuSheet(thayDoi, mocMoi);
+      await this.kho.datTrangThai('lanCuoiThanhCong', String(this.bayGio()));
+      await this.kho.datTrangThai('loiCuoi', '');
     } catch (e) {
       const loi = (e as Error).message ?? String(e);
-      this.kho.datTrangThai('loiCuoi', loi);
+      await this.kho.datTrangThai('loiCuoi', loi).catch(() => {});
       this.ghiLog(`Đồng bộ chưa được: ${loi}`);
     }
   }

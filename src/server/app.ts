@@ -6,8 +6,7 @@ import { dirname, join } from 'node:path';
 import {
   DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, demTheoNgay, denHen, kinhHen, laThang, suCo, timDon, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
 } from '../core/don-kinh.js';
-import { KhoDonKinh } from './kho.js';
-import { xuatExcel } from './xuat-excel.js';
+import { KhoExcel, LoiFileDangMo } from './kho-excel.js';
 import { diaChiMangNoiBo } from './cau-hinh.js';
 import { DongBo } from './dong-bo.js';
 import type { KenhSheet } from '../core/dong-bo.js';
@@ -16,7 +15,14 @@ import {
 } from './dang-nhap.js';
 
 export interface ServerOptions {
-  dbPath: string;
+  /** File Excel là dữ liệu chính (ADR 0004); Máy quầy: Desktop\Sổ Đơn Kính\So-don-kinh.xlsx. */
+  fileDuLieu: string;
+  /** Thư mục giữ bản sao hằng ngày (Máy quầy: Sổ Đơn Kính\Sao lưu); không có thì không sao lưu. */
+  thuMucSaoLuu?: string;
+  /** Chu kỳ kiểm tra sao lưu (ms); 0 = không tự chạy. Mặc định 1 giờ (mỗi ngày một bản, ghi đè trong ngày). */
+  chuKySaoLuu?: number;
+  /** Đổi tên file tạm thành file chính; test tiêm vào để giả lập file đang mở trong Excel. */
+  doiTenFile?: (tu: string, den: string) => void;
   port: number;
   host?: string;
   /** Ngày hôm nay dạng YYYY-MM-DD theo giờ máy; tiêm vào để test. */
@@ -33,10 +39,6 @@ export interface ServerOptions {
   kenhSheet?: KenhSheet;
   /** Chu kỳ tự đồng bộ (ms); 0 = không tự chạy (test gọi dongBo()). Mặc định 30 giây. */
   chuKyDongBo?: number;
-  /** Thư mục lưu file Excel (Máy quầy: Desktop\Sổ Đơn Kính); không có thì không xuất Excel. */
-  thuMucExcel?: string;
-  /** Chu kỳ tự lưu Excel (ms); 0 = chỉ lưu khi bấm nút. Mặc định 1 giờ. */
-  chuKyExcel?: number;
   ghiLog?: (s: string) => void;
   /** Địa chỉ mạng nội bộ của máy; tiêm vào để test. */
   diaChiMang?: () => string[];
@@ -58,7 +60,7 @@ export function homNayTheoMay(): string {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 export async function startServer(opts: ServerOptions): Promise<RunningServer> {
-  const kho = new KhoDonKinh(opts.dbPath);
+  const kho = await KhoExcel.mo(opts.fileDuLieu, { doiTen: opts.doiTenFile });
   const today = opts.today ?? homNayTheoMay;
   const webDir = opts.webDir ?? join(ROOT, 'dist', 'web');
   const bayGio = opts.bayGio ?? Date.now;
@@ -67,9 +69,14 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? '/', 'http://localhost');
-      if (url.pathname.startsWith('/api/')) return await xuLyApi(req, res, url);
+      if (url.pathname.startsWith('/api/')) {
+        // Nhân viên có thể vừa sửa file Excel rồi Lưu: đọc lại trước khi trả lời
+        await kho.docLaiNeuDoi();
+        return await xuLyApi(req, res, url);
+      }
       return await phucVuGiaoDien(res, url.pathname);
     } catch (e) {
+      if (e instanceof LoiFileDangMo) return guiJson(res, 423, { loi: e.message });
       guiJson(res, 500, { loi: 'Lỗi máy chủ', chiTiet: String(e) });
     }
   });
@@ -81,26 +88,18 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
         return guiJson(res, 401, { loi: 'Sai tên đăng nhập hoặc mật khẩu' });
       }
       const ma = taoMaPhien();
-      kho.taoPhien(bamMaPhien(ma), bayGio() + THOI_HAN_MS);
+      await kho.taoPhien(bamMaPhien(ma), bayGio() + THOI_HAN_MS);
       res.setHeader('set-cookie', cookiePhien(ma, THOI_HAN_MS / 1000));
       return guiJson(res, 200, { ten: opts.taiKhoan.ten });
     }
     const ma = docMaPhien(req);
     if (url.pathname === '/api/dang-xuat' && req.method === 'POST') {
-      if (ma) kho.xoaPhien(bamMaPhien(ma));
+      if (ma) await kho.xoaPhien(bamMaPhien(ma));
       res.setHeader('set-cookie', cookiePhien('', 0));
       return guiJson(res, 200, {});
     }
     if (!ma || !kho.phienConHan(bamMaPhien(ma), bayGio())) {
       return guiJson(res, 401, { loi: 'Cần đăng nhập' });
-    }
-    if (url.pathname === '/api/xuat-excel' && req.method === 'POST') {
-      if (!opts.thuMucExcel) return guiJson(res, 400, { loi: 'Máy này chưa cấu hình thư mục lưu Excel' });
-      try {
-        return guiJson(res, 200, { duongDan: await luuExcel() });
-      } catch (e) {
-        return guiJson(res, 500, { loi: (e as Error).message });
-      }
     }
     if (url.pathname === '/api/dia-chi' && req.method === 'GET') {
       // Link để mở app trên thiết bị khác cùng mạng (điện thoại, máy khác)
@@ -129,7 +128,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       if (!ten.ok) return guiJson(res, 400, { loi: ten.loi });
       const ngay = chuanHoa('ngayDat', body.ngayDat || today());
       if (!ngay.ok) return guiJson(res, 400, { loi: ngay.loi });
-      return guiJson(res, 201, kho.tao(ten.value, ngay.value));
+      return guiJson(res, 201, await kho.tao(ten.value, ngay.value));
     }
     if (url.pathname === '/api/danh-sach' && req.method === 'GET') {
       return guiJson(res, 200, kho.danhSach());
@@ -143,7 +142,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       const body = await docJson(req);
       const kq = themVaoDanhSach(kho.danhSach()[loai], body.giaTri);
       if (!kq.ok) return guiJson(res, 400, { loi: kq.loi });
-      if (kq.moi) kho.themVaoDanhSach(loai, kq.ds[kq.ds.length - 1]!);
+      if (kq.moi) await kho.themVaoDanhSach(loai, kq.ds[kq.ds.length - 1]!);
       return guiJson(res, 201, kho.danhSach()[loai]);
     }
     if (url.pathname === '/api/lich' && req.method === 'GET') {
@@ -170,7 +169,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     }
     const tr = url.pathname.match(/^\/api\/don-kinh\/([^/]+)\/(thung-rac|khoi-phuc)$/);
     if (tr && req.method === 'POST') {
-      const don = kho.datThungRac(decodeURIComponent(tr[1]!), tr[2] === 'thung-rac');
+      const don = await kho.datThungRac(decodeURIComponent(tr[1]!), tr[2] === 'thung-rac');
       if (!don) return guiJson(res, 404, { loi: 'Không tìm thấy Đơn kính' });
       return guiJson(res, 200, don);
     }
@@ -178,7 +177,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     if (ht && req.method === 'POST') {
       const don = kho.lay(decodeURIComponent(ht[1]!));
       if (!don) return guiJson(res, 404, { loi: 'Không tìm thấy Đơn kính' });
-      return guiJson(res, 200, kho.sua(don.id, 'ttKinh', DA_TRA));
+      return guiJson(res, 200, await kho.sua(don.id, 'ttKinh', DA_TRA));
     }
     const m = url.pathname.match(/^\/api\/don-kinh\/([^/]+)$/);
     if (m && req.method === 'PATCH') {
@@ -188,7 +187,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       if (!laTruongSuaDuoc(field)) return guiJson(res, 400, { loi: `Không sửa được trường "${field}"` });
       const v = chuanHoa(field, body.value);
       if (!v.ok) return guiJson(res, 400, { loi: v.loi });
-      const don = kho.sua(id, field, v.value);
+      const don = await kho.sua(id, field, v.value);
       if (!don) return guiJson(res, 404, { loi: 'Không tìm thấy Đơn kính' });
       return guiJson(res, 200, don);
     }
@@ -220,15 +219,18 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const addr = server.address();
   const port = typeof addr === 'object' && addr ? addr.port : opts.port;
 
-  /** Lưu file Excel của hôm nay (ghi đè trong ngày). */
-  const luuExcel = () => xuatExcel(kho.tatCa(), opts.thuMucExcel!, today());
-  let henExcel: ReturnType<typeof setInterval> | undefined;
-  const chuKyExcel = opts.chuKyExcel ?? 60 * 60_000;
-  if (opts.thuMucExcel && chuKyExcel > 0) {
-    const tuLuu = () => luuExcel().then((f) => opts.ghiLog?.(`Đã lưu Excel: ${f}`), (e) => opts.ghiLog?.(`Lưu Excel lỗi: ${(e as Error).message}`));
-    void tuLuu();
-    henExcel = setInterval(tuLuu, chuKyExcel);
-    henExcel.unref?.();
+  // Bản sao hằng ngày của file Excel (ghi đè trong ngày, giữ 30 bản)
+  let henSaoLuu: ReturnType<typeof setInterval> | undefined;
+  const chuKySaoLuu = opts.chuKySaoLuu ?? 60 * 60_000;
+  if (opts.thuMucSaoLuu && chuKySaoLuu > 0) {
+    const thuMuc = opts.thuMucSaoLuu;
+    const saoLuu = () => kho.saoLuu(thuMuc, today()).then(
+      (f) => opts.ghiLog?.(`Đã sao lưu: ${f}`),
+      (e) => opts.ghiLog?.(`Sao lưu lỗi: ${(e as Error).message}`),
+    );
+    void saoLuu();
+    henSaoLuu = setInterval(saoLuu, chuKySaoLuu);
+    henSaoLuu.unref?.();
   }
 
   const chuKy = opts.chuKyDongBo ?? 30_000;
@@ -242,11 +244,10 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     close: () =>
       new Promise<void>((resolve, reject) => {
         dongBo?.dung();
-        if (henExcel) clearInterval(henExcel);
+        if (henSaoLuu) clearInterval(henSaoLuu);
         server.closeAllConnections();
         server.close((err) => {
-          kho.dong();
-          err ? reject(err) : resolve();
+          void kho.dong().then(() => (err ? reject(err) : resolve()));
         });
       }),
   };
