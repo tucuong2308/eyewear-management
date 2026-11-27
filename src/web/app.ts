@@ -30,7 +30,12 @@ type Trang = 'hom-nay' | 'lich-su' | 'kinh-hen' | 'su-co' | 'tong' | 'thung-rac'
 const TRANG: [Trang, string][] = [
   ['hom-nay', 'Hôm nay'], ['lich-su', 'Lịch sử'], ['kinh-hen', 'Kính hẹn'], ['su-co', 'Sự cố'], ['tong', 'Tổng'], ['thung-rac', 'Thùng rác'],
 ];
-type Bang = 'nhap' | 'hen' | 'kh' | 'sc' | 'tr' | 'ls' | 'tg';
+/** 'mo': form của một Đơn kính trên điện thoại. */
+type Bang = 'nhap' | 'hen' | 'kh' | 'sc' | 'tr' | 'ls' | 'tg' | 'mo';
+
+/** Màn hình nhỏ: mỗi Đơn kính là một thẻ, bấm vào mở form (kiểu B của bản thử). */
+const manHinhNho = window.matchMedia('(max-width: 760px)');
+const dienThoai = () => manHinhNho.matches;
 
 const DO_KINH = new Set<TruongSuaDuoc>(['mp', 'mt', 'add']);
 
@@ -55,6 +60,8 @@ const S = {
   trang: trangTuHash(),
   /** null = chưa biết; false = phải hiện màn hình đăng nhập. */
   daDangNhap: null as boolean | null,
+  /** Đơn kính đang mở trong form (điện thoại). */
+  mo: null as string | null,
   loiDangNhap: '',
   trangThai: '' as '' | 'dang' | 'ok' | 'loi',
   thongBao: null as ThongBao | null,
@@ -143,7 +150,11 @@ async function luu<T>(viec: () => Promise<T>): Promise<T | undefined> {
 
 async function taoDon(ten: string, ngayDat: string, bang: Bang) {
   const don = await luu(() => goi<DonKinh>('POST', '/api/don-kinh', { ten, ngayDat }));
-  if (don) {
+  if (don && dienThoai()) {
+    S.mo = don.id;
+    S.focusSau = `mo:${don.id}:tuoi`;
+    render();
+  } else if (don) {
     S.focusSau = `${bang}:${don.id}:tuoi`;
     render();
   }
@@ -155,7 +166,8 @@ async function suaO(id: string, field: TruongSuaDuoc, value: string) {
   render();
 }
 
-async function hoanThanh(id: string, bang: Bang) {
+async function hoanThanh(id: string, bangGoc: Bang) {
+  const bang: Bang = dienThoai() ? 'mo' : bangGoc;
   const truoc = S.kinhHen.find((d) => d.id === id);
   if (!truoc) return;
   S.trangThai = 'dang';
@@ -164,6 +176,7 @@ async function hoanThanh(id: string, bang: Bang) {
     await goi<DonKinh>('POST', `/api/don-kinh/${encodeURIComponent(id)}/hoan-thanh`);
     S.trangThai = 'ok';
     S.thieu = null;
+    S.mo = null;
     S.thongBao = {
       loai: 'ok',
       noiDung: `Đã hoàn thành “${truoc.ten}”: Tình trạng kính = Đã trả.`,
@@ -177,7 +190,9 @@ async function hoanThanh(id: string, bang: Bang) {
     if (e instanceof LoiApi && e.status === 422) {
       const thieu = (e.data.thieu as TruongSuaDuoc[]) ?? [];
       S.thieu = { id, bang, truong: thieu };
-      S.thongBao = { loai: 'loi', noiDung: `Chưa hoàn thành được “${truoc.ten}”. ${e.message}. Nhập ngay trên dòng tô đỏ rồi bấm Hoàn thành lại.` };
+      if (bang === 'mo') S.mo = id;
+      const oDau = bang === 'mo' ? 'Nhập các ô tô đỏ' : 'Nhập ngay trên dòng tô đỏ';
+      S.thongBao = { loai: 'loi', noiDung: `Chưa hoàn thành được “${truoc.ten}”. ${e.message}. ${oDau} rồi bấm Hoàn thành lại.` };
       S.focusSau = thieu[0] ? `${bang}:${id}:${thieu[0]}` : null;
     } else {
       S.thongBao = { loai: 'loi', noiDung: `Chưa hoàn thành được: ${(e as Error).message}` };
@@ -230,6 +245,7 @@ function o(bang: Bang, don: DonKinh, f: TruongSuaDuoc) {
 
 /** Bảng nhập đơn của một ngày: trang Hôm nay (hôm nay) và trang Lịch sử (ngày đang chọn). */
 function bangNhap(bang: Bang, rows: DonKinh[], ngayDat: string) {
+  if (dienThoai()) return oTaoMoi(bang, ngayDat) + danhSachThe(rows, false, 'Chưa có đơn nào.');
   const hang = rows.map((d) => `<tr>${COT_NHAP.map(([f, w]) => `<td class="${w}">${o(bang, d, f)}</td>`).join('')}${oXoa(d)}</tr>`).join('');
   return `<div class="grid-wrap"><table>
     <thead><tr>${COT_NHAP.map(([f]) => `<th>${NHAN[f]}</th>`).join('')}<th></th></tr></thead>
@@ -249,6 +265,7 @@ function nhanMuc(d: DonKinh) {
 /** Bảng Kính hẹn dùng cho cả hai nơi: bảng Đến hẹn ở trang Hôm nay và trang Kính hẹn. */
 function bangHen(bang: Bang, rows: DonKinh[], cotGoc: [TruongSuaDuoc, string][], trong: string) {
   if (!rows.length) return `<div class="empty">${trong}</div>`;
+  if (dienThoai()) return danhSachThe(rows, true, trong, bang);
   const thieuO = S.thieu?.bang === bang ? S.thieu : null;
   const them = (thieuO?.truong ?? [])
     .filter((f) => !cotGoc.some(([c]) => c === f))
@@ -284,16 +301,81 @@ function oXoa(d: DonKinh) {
 
 function bangDayDu(bang: Bang, rows: DonKinh[], trong: string) {
   if (!rows.length) return `<div class="empty">${trong}</div>`;
+  if (dienThoai()) return danhSachThe(rows, false, trong);
   const hang = rows.map((d) => `<tr>${COT_NHAP.map(([f, w]) => `<td class="${w}">${o(bang, d, f)}</td>`).join('')}${oXoa(d)}</tr>`).join('');
   return `<div class="grid-wrap"><table>
     <thead><tr>${COT_NHAP.map(([f]) => `<th>${NHAN[f]}</th>`).join('')}<th></th></tr></thead>
     <tbody>${hang}</tbody></table></div>`;
 }
 
+// ---- Điện thoại: thẻ + form ----
+
+function oTaoMoi(bang: Bang, ngayDat: string) {
+  return `<div class="the-moi"><input class="cell" data-new="${bang}" data-ngay="${ngayDat}" data-k="${bang}:new:ten" placeholder="+ Gõ tên bệnh nhân rồi Enter…" aria-label="Tên bệnh nhân mới"></div>`;
+}
+
+function chipDon(d: DonKinh) {
+  const chip: string[] = [];
+  if (d.ngayHen && d.ttKinh !== 'Đã trả') chip.push(nhanMuc(d));
+  chip.push(`<span class="chip ${d.ttKinh === 'Đã trả' ? 'xong' : 'tron'}">${esc(d.ttKinh)}</span>`);
+  if (d.phanHoi === 'Sự cố') chip.push('<span class="chip qua">Sự cố</span>');
+  return chip.join('');
+}
+
+function danhSachThe(rows: DonKinh[], coHoanThanh: boolean, trong: string, bang: Bang = 'nhap') {
+  if (!rows.length) return `<div class="empty">${trong}</div>`;
+  return `<div class="ds-the">${rows.map((d) => `
+    <div class="the u-${mucGap(d, S.homNay)}">
+      <button type="button" class="the-than" data-act="mo" data-id="${d.id}">
+        <span class="ten">${esc(d.ten)}</span>
+        <span class="phu">${[d.tuoi && `${esc(d.tuoi)} tuổi`, esc(d.sdt) || 'chưa có SĐT', `đặt ${ngayNgan(d.ngayDat)}`].filter(Boolean).join(' · ')}</span>
+        <span class="do-kinh mono">MP ${esc(d.mp) || '–'} · MT ${esc(d.mt) || '–'}</span>
+        ${d.hang || d.loai ? `<span class="phu">${esc(d.hang)} ${esc(d.loai)}</span>` : ''}
+      </button>
+      <div class="the-chan">${chipDon(d)}<span class="grow"></span>
+        ${d.thungRac
+          ? `<button class="btn small" data-act="khoi-phuc" data-id="${d.id}">Khôi phục</button>`
+          : coHoanThanh ? `<button class="btn small" data-act="hoan-thanh" data-bang="${bang}" data-id="${d.id}">✓ Hoàn thành</button>` : ''}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function formDon() {
+  if (!S.mo || !dienThoai()) return '';
+  const d = tatCaDangHien().find((x) => x.id === S.mo);
+  if (!d) return '';
+  const thieu = S.thieu?.bang === 'mo' && S.thieu.id === d.id ? S.thieu.truong : [];
+  const o1 = (f: TruongSuaDuoc, rong = false) =>
+    `<div class="truong ${rong ? 'rong' : ''} ${thieu.includes(f) ? 'thieu' : ''}"><label>${NHAN[f]}</label>${o('mo', d, f)}</div>`;
+  const nhom = (tieuDe: string, ...truong: string[]) => `<section><h3>${tieuDe}</h3><div class="luoi">${truong.join('')}</div></section>`;
+  return `<div class="man" data-act="dong-mo"></div>
+  <aside class="form-don" role="dialog" aria-modal="true" aria-label="Đơn kính ${esc(d.ten)}">
+    <header><h2>${esc(d.ten)}</h2><button class="btn small ghost" data-act="dong-mo" aria-label="Đóng">✕</button></header>
+    <div class="than">
+      ${nhom('Bệnh nhân', o1('ten', true), o1('tuoi'), o1('sdt'))}
+      ${nhom('Độ kính', o1('mp'), o1('mt'), o1('add'))}
+      ${nhom('Tròng', o1('hang'), o1('nguon'), o1('loai', true))}
+      ${nhom('Hẹn và tiến độ', o1('ngayDat'), o1('ngayHen'), o1('ttTrong'), o1('ttKinh'), o1('tuVan'), o1('cat'))}
+      ${nhom('Ship (nếu có)', o1('shipTime'), o1('diaChi'))}
+      ${nhom('Phản hồi', o1('phanHoi', true))}
+      ${nhom('Ghi chú', o1('ghiChu', true))}
+    </div>
+    <footer>
+      ${d.thungRac
+        ? `<button class="btn" data-act="khoi-phuc" data-id="${d.id}">Khôi phục</button>`
+        : `<button class="btn ghost" data-act="thung-rac" data-id="${d.id}">🗑 Thùng rác</button>`}
+      <span class="grow"></span>
+      ${d.ngayHen && d.ttKinh !== 'Đã trả' && !d.thungRac ? `<button class="btn chinh" data-act="hoan-thanh" data-bang="mo" data-id="${d.id}">✓ Hoàn thành</button>` : ''}
+      <button class="btn" data-act="dong-mo">Xong</button>
+    </footer>
+  </aside>`;
+}
+
 async function datThungRac(id: string, vao: boolean) {
   const don = tatCaDangHien().find((d) => d.id === id);
   const kq = await luu(() => goi<DonKinh>('POST', `/api/don-kinh/${encodeURIComponent(id)}/${vao ? 'thung-rac' : 'khoi-phuc'}`));
   if (!kq) return;
+  if (vao) S.mo = null;
   S.thongBao = vao
     ? { loai: 'ok', noiDung: `Đã đưa “${don?.ten ?? ''}” vào Thùng rác.`, hoanTac: () => datThungRac(id, false) }
     : { loai: 'ok', noiDung: `Đã khôi phục “${don?.ten ?? ''}”.` };
@@ -423,6 +505,7 @@ function render() {
         'thung-rac': () => bangDayDu('tr', S.thungRac, 'Thùng rác trống.'),
       }[S.trang]()}
     </main>
+    ${formDon()}
     <datalist id="goi-y-loai">${(S.ds?.goiYLoai ?? []).map((x) => `<option value="${esc(x)}">`).join('')}</datalist>`;
 
   const el = k ? app.querySelector<HTMLInputElement>(`[data-k="${CSS.escape(k)}"]`) : null;
@@ -471,6 +554,18 @@ document.addEventListener('click', (e) => {
     void suaO(b.dataset.id, 'phanHoi', don?.phanHoi === v ? '' : v);
   }
   if ((act === 'thung-rac' || act === 'khoi-phuc') && b.dataset.id) void datThungRac(b.dataset.id, act === 'thung-rac');
+  if (act === 'mo' && b.dataset.id) {
+    S.mo = b.dataset.id;
+    render();
+  }
+  if (act === 'dong-mo') {
+    S.mo = null;
+    if (S.thieu?.bang === 'mo') {
+      S.thieu = null;
+      if (S.thongBao?.loai === 'loi') S.thongBao = null;
+    }
+    render();
+  }
   if (act === 'dang-xuat') {
     void goi('POST', '/api/dang-xuat').finally(() => {
       S.daDangNhap = false;
@@ -511,6 +606,11 @@ document.addEventListener('focusout', (e) => {
 
 document.addEventListener('keydown', (e) => {
   const t = e.target as HTMLInputElement;
+  if (e.key === 'Escape' && S.mo && !t.dataset?.khac) {
+    S.mo = null;
+    render();
+    return;
+  }
   if (t.dataset?.khac && e.key === 'Escape') {
     S.khac = null;
     render();
@@ -547,8 +647,11 @@ document.addEventListener('input', (e) => {
   henTim = setTimeout(() => void taiLai(), 200);
 });
 
+manHinhNho.addEventListener('change', () => render());
+
 window.addEventListener('hashchange', () => {
   S.trang = trangTuHash();
+  S.mo = null;
   S.thongBao = null;
   S.thieu = null;
   render();
