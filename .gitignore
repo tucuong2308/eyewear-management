@@ -1,0 +1,10 @@
+# Patient data: never commit
+*.xlsx
+*.xls
+*.csv
+data/
+.scratch/
+
+node_modules/
+.env
+.env.*
