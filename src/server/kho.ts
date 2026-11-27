@@ -24,6 +24,10 @@ export class KhoDonKinh {
   id TEXT NOT NULL UNIQUE,
   ${COT}
 )`);
+    const cot = this.db.prepare('PRAGMA table_info(don_kinh)').all() as { name: string }[];
+    if (!cot.some((c) => c.name === 'thung_rac')) {
+      this.db.exec('ALTER TABLE don_kinh ADD COLUMN thung_rac INTEGER NOT NULL DEFAULT 0');
+    }
     this.db.exec(`CREATE TABLE IF NOT EXISTS danh_sach (
   stt INTEGER PRIMARY KEY AUTOINCREMENT,
   loai TEXT NOT NULL,
@@ -53,12 +57,22 @@ export class KhoDonKinh {
     const cols = ['id', ...TRUONG_SUA_DUOC];
     this.db
       .prepare(`INSERT INTO don_kinh (${cols.map((c) => `"${c}"`).join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
-      .run(...cols.map((c) => don[c as keyof DonKinh]));
+      .run(...cols.map((c) => String(don[c as keyof DonKinh])));
     return don;
   }
 
   lay(id: string): DonKinh | undefined {
-    return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh WHERE id = ?`).get(id) as DonKinh | undefined;
+    const r = this.db.prepare(`SELECT ${this.chon()} FROM don_kinh WHERE id = ?`).get(id);
+    return r ? doc(r) : undefined;
+  }
+
+  datThungRac(id: string, thungRac: boolean): DonKinh | undefined {
+    const r = this.db.prepare('UPDATE don_kinh SET thung_rac = ? WHERE id = ?').run(thungRac ? 1 : 0, id);
+    return r.changes ? this.lay(id) : undefined;
+  }
+
+  thungRac(): DonKinh[] {
+    return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh WHERE thung_rac = 1 ORDER BY stt`).all().map(doc);
   }
 
   sua(id: string, field: TruongSuaDuoc, value: string): DonKinh | undefined {
@@ -68,11 +82,12 @@ export class KhoDonKinh {
   }
 
   theoNgayDat(ngay: string): DonKinh[] {
-    return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh WHERE ngayDat = ? ORDER BY stt`).all(ngay) as DonKinh[];
+    return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh WHERE ngayDat = ? AND thung_rac = 0 ORDER BY stt`).all(ngay).map(doc);
   }
 
+  /** Mọi đơn, kể cả trong Thùng rác; các quy tắc dùng chung tự loại đơn trong Thùng rác. */
   tatCa(): DonKinh[] {
-    return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh ORDER BY stt`).all() as DonKinh[];
+    return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh ORDER BY stt`).all().map(doc);
   }
 
   dong() {
@@ -80,6 +95,11 @@ export class KhoDonKinh {
   }
 
   private chon() {
-    return ['id', ...TRUONG_SUA_DUOC].map((c) => `"${c}"`).join(',');
+    return [...['id', ...TRUONG_SUA_DUOC].map((c) => `"${c}"`), 'thung_rac AS thungRac'].join(',');
   }
+}
+
+function doc(r: unknown): DonKinh {
+  const row = r as Record<string, unknown>;
+  return { ...(row as DonKinh), thungRac: row.thungRac === 1 };
 }

@@ -13,7 +13,8 @@ export const TRUONG_SUA_DUOC = [
 
 export type TruongSuaDuoc = (typeof TRUONG_SUA_DUOC)[number];
 
-export type DonKinh = { id: string } & Record<TruongSuaDuoc, string>;
+/** thungRac: đơn đã bị đưa vào Thùng rác (khôi phục được; không bao giờ xóa vĩnh viễn). */
+export type DonKinh = { id: string; thungRac: boolean } & Record<TruongSuaDuoc, string>;
 
 export const NHAN: Record<TruongSuaDuoc, string> = {
   ten: 'Tên', tuoi: 'Tuổi', sdt: 'SĐT',
@@ -51,7 +52,7 @@ export function chuanHoa(field: TruongSuaDuoc, value: unknown): { ok: true; valu
 /** Đơn kính mới chỉ từ tên; các trường khác để trống trừ Ngày đặt và hai tình trạng mặc định. */
 export function donMoi(id: string, ten: string, ngayDat: string): DonKinh {
   const don = Object.fromEntries(TRUONG_SUA_DUOC.map((f) => [f, ''])) as Record<TruongSuaDuoc, string>;
-  return { ...don, id, ten, ngayDat, ttTrong: TT_TRONG_MAC_DINH, ttKinh: TT_KINH_MAC_DINH };
+  return { ...don, id, thungRac: false, ten, ngayDat, ttTrong: TT_TRONG_MAC_DINH, ttKinh: TT_KINH_MAC_DINH };
 }
 
 // ---- Kính hẹn, Đến hẹn, Hoàn thành ----
@@ -67,7 +68,7 @@ export const TRUONG_BAT_BUOC: readonly TruongSuaDuoc[] = [
 const trong = (v: string | undefined) => !v || !v.trim();
 
 export const daHoanThanh = (d: DonKinh) => d.ttKinh === DA_TRA;
-export const laKinhHen = (d: DonKinh) => !trong(d.ngayHen) && !daHoanThanh(d);
+export const laKinhHen = (d: DonKinh) => !d.thungRac && !trong(d.ngayHen) && !daHoanThanh(d);
 export const truongConThieu = (d: DonKinh) => TRUONG_BAT_BUOC.filter((f) => trong(d[f]));
 
 export type MucGap = 'qua' | 'gan' | 'sap' | '';
@@ -84,7 +85,7 @@ export function mucGap(d: DonKinh, homNay: string): MucGap {
 }
 
 export const SU_CO = 'Sự cố';
-export const laSuCo = (d: DonKinh) => d.phanHoi === SU_CO;
+export const laSuCo = (d: DonKinh) => !d.thungRac && d.phanHoi === SU_CO;
 
 /** Đơn kính có Phản hồi = Sự cố; mới đặt nhất lên đầu. */
 export function suCo(ds: DonKinh[]): DonKinh[] {
