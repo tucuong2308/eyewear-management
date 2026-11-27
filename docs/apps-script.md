@@ -14,7 +14,7 @@ Code Apps Script nằm ở `src/apps-script/`. Phần xử lý (`xu-ly.ts`) có 
 
    ```sh
    cd apps-script
-   npx @google/clasp create --type sheets --title "Sổ Đơn Kính" --rootDir ../dist/apps-script
+   npx @google/clasp create --type sheets --title "Sổ Đơn Kính" --rootDir dist
    cd ..
    ```
 
