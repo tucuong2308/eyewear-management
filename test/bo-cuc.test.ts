@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COT_TONG, TIEU_DE_TONG, chuCot, donTuHang, hangTheoTieuDe, tabXem } from '../src/core/bo-cuc.js';
+import { COT_TONG, TIEU_DE_TONG, chuCot, congThucChamPhay, donTuHang, hangTheoTieuDe, tabXem } from '../src/core/bo-cuc.js';
 import { donMoi } from '../src/core/don-kinh.js';
 
 const don = { ...donMoi('ma-1', 'AN', '2026-11-27'), sdt: '0912', nguon: 'Kính đặt', ngayHen: '2026-11-30' };
@@ -50,5 +50,10 @@ describe('Bố cục bảng TỔNG giống file mẫu', () => {
     expect(suCo!.tieuDe).toEqual(TIEU_DE_TONG.slice(0, 22));
     expect(suCo!.congThuc).toContain(`FILTER('TỔNG'!A2:V, 'TỔNG'!A2:A="Sự cố"`);
     expect(COT_TONG).toHaveLength(25);
+  });
+
+  it('đổi công thức sang kiểu dấu chấm phẩy cho Sheet đặt vùng Việt Nam', () => {
+    expect(congThucChamPhay('=IFERROR(SORT(FILTER({A2:A,B2:B}, C2:C<>"a,b"), 2, TRUE), "")'))
+      .toBe(`=IFERROR(SORT(FILTER({A2:A${String.fromCharCode(92)}B2:B}; C2:C<>"a,b"); 2; TRUE); "")`);
   });
 });

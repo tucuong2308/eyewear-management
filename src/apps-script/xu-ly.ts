@@ -35,8 +35,8 @@ const COT_TICK = COT_TONG.flatMap((c, i) => (c.loai === 'tick' ? [i] : []));
 export function khoiTao(b: BangTinh, ngauNhien: () => string) {
   if (!b.coTab(TAB.don)) b.taoTab(TAB.don, TIEU_DE_TONG, { cotTick: COT_TICK });
   for (const x of TAB_XEM) {
-    if (b.coTab(x.ten)) continue;
-    b.taoTab(x.ten, x.tieuDe);
+    if (!b.coTab(x.ten)) b.taoTab(x.ten, x.tieuDe);
+    // luôn ghi lại công thức: chạy lại caiDat là sửa được tab lọc bị hỏng
     b.ghiCongThuc(x.ten, 1, 0, x.congThuc);
   }
   if (!b.coTab(TAB.nhatKy)) b.taoTab(TAB.nhatKy, ['Mã đơn', 'Trường', 'Giá trị', 'Lúc'], { an: true });

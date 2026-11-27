@@ -1,6 +1,7 @@
 // Lớp nối phần xử lý (xu-ly.ts) vào Google Apps Script thật. Chỉ chạy trên Google, không có test tự động;
 // mọi logic nằm ở xu-ly.ts đã được test trên máy.
 import { CAI_DAT, TAB, docCaiDat, ghiNhanSuaTay, khoiTao, xuLyYeuCau, type BangTinh } from './xu-ly.js';
+import { congThucChamPhay } from '../core/bo-cuc.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const SpreadsheetApp: any;
@@ -47,7 +48,15 @@ class BangTinhGas implements BangTinh {
     this.ghiVung(ten, this.tab(ten).getLastRow(), hang);
   }
   ghiCongThuc(ten: string, hang: number, cot: number, congThuc: string) {
-    this.tab(ten).getRange(hang + 1, cot + 1).setFormula(congThuc);
+    const o = this.tab(ten).getRange(hang + 1, cot + 1);
+    o.setFormula(congThuc);
+    SpreadsheetApp.flush();
+    // Sheet đặt vùng dùng dấu phẩy thập phân (như Việt Nam) đọc công thức kiểu dấu chấm phẩy
+    if (o.getDisplayValue() === '#ERROR!') {
+      o.setFormula(congThucChamPhay(congThuc));
+      SpreadsheetApp.flush();
+    }
+    console.log(`${ten}: công thức ${o.getDisplayValue() === '#ERROR!' ? 'VẪN LỖI' : 'chạy được'}`);
   }
 }
 
