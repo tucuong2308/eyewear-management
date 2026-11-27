@@ -113,6 +113,20 @@ export class KhoDonKinh {
     return doi ? this.lay(id) : undefined;
   }
 
+  /** Nhập một Đơn kính có sẵn mã (chuyển dữ liệu cũ). Đã có mã đó thì bỏ qua. Ghi chờ đẩy để lên Sheet. */
+  nhapDon(don: DonKinh): boolean {
+    const cols = ['id', ...TRUONG_SUA_DUOC];
+    return this.giaoDich(() => {
+      const r = this.db
+        .prepare(`INSERT OR IGNORE INTO don_kinh (${cols.map((c) => `"${c}"`).join(',')}, thung_rac) VALUES (${cols.map(() => '?').join(',')}, ?)`)
+        .run(...cols.map((c) => String(don[c as keyof DonKinh])), don.thungRac ? 1 : 0);
+      if (!r.changes) return false;
+      for (const f of TRUONG_SUA_DUOC) this.ghiCho(don.id, f, don[f]);
+      if (don.thungRac) this.ghiCho(don.id, 'thungRac', '1');
+      return true;
+    });
+  }
+
   // ---- Đồng bộ với Sheet ----
 
   choDay(): OChoDay[] {

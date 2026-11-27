@@ -37,6 +37,17 @@ Lệnh này tạo lối tắt trong thư mục Startup để exe tự chạy cù
 - Dữ liệu, cấu hình và nhật ký: `%LOCALAPPDATA%\SoDonKinh`.
 - Gỡ tự chạy và quy tắc tường lửa: `SoDonKinh.exe --go-cai-dat`.
 
+## Chuyển dữ liệu tháng 11/2026
+
+Tải file Google Sheets cũ "DANH SÁCH KÍNH 11/2026" về dạng .xlsx (Tệp → Tải xuống → Microsoft Excel), rồi:
+
+```sh
+npm run nhap-thang-11 -- "đường/dẫn/file.xlsx" --thu                                # chỉ báo cáo, không ghi
+npm run nhap-thang-11 -- "đường/dẫn/file.xlsx" --data "%LOCALAPPDATA%\SoDonKinh"   # nhập vào dữ liệu của exe
+```
+
+Chạy lại không nhập trùng. Đơn có nguồn tròng không rõ được ghi `[KIỂM TRA NGUỒN TRÒNG]` ở đầu Ghi chú. Các đơn được ghi chờ đẩy nên tự lên Google Sheet khi bật đồng bộ. **Không commit file Excel hay CSDL** (dữ liệu Bệnh nhân thật).
+
 ## Kiểm thử
 
 ```sh

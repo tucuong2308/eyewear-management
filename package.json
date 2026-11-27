@@ -9,7 +9,8 @@
     "build:web": "esbuild src/web/app.ts --bundle --format=esm --outfile=dist/web/app.js --sourcemap && node -e \"require('fs').copyFileSync('src/web/index.html','dist/web/index.html')\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build:exe": "node scripts/build-exe.mjs"
+    "build:exe": "node scripts/build-exe.mjs",
+    "nhap-thang-11": "esbuild scripts/nhap-thang-11.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/nhap-thang-11.mjs --log-level=warning && node dist/nhap-thang-11.mjs"
   },
   "repository": {
     "type": "git",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^22.10.1",
     "esbuild": "^0.24.0",
+    "exceljs": "^4.4.0",
     "postject": "^1.0.0-alpha.6",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
