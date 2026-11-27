@@ -83,6 +83,15 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     if (url.pathname === '/api/den-hen' && req.method === 'GET') {
       return guiJson(res, 200, denHen(kho.tatCa(), today()));
     }
+    if (url.pathname === '/api/thung-rac' && req.method === 'GET') {
+      return guiJson(res, 200, kho.thungRac());
+    }
+    const tr = url.pathname.match(/^\/api\/don-kinh\/([^/]+)\/(thung-rac|khoi-phuc)$/);
+    if (tr && req.method === 'POST') {
+      const don = kho.datThungRac(decodeURIComponent(tr[1]!), tr[2] === 'thung-rac');
+      if (!don) return guiJson(res, 404, { loi: 'Không tìm thấy Đơn kính' });
+      return guiJson(res, 200, don);
+    }
     const ht = url.pathname.match(/^\/api\/don-kinh\/([^/]+)\/hoan-thanh$/);
     if (ht && req.method === 'POST') {
       const don = kho.lay(decodeURIComponent(ht[1]!));

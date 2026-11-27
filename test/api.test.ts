@@ -223,6 +223,39 @@ describe('Sự cố', () => {
   });
 });
 
+describe('Thùng rác', () => {
+  it('đơn trong Thùng rác không xuất hiện ở Hôm nay, Kính hẹn, Đến hẹn, Sự cố', async () => {
+    const don = await taoDonHen('Nhập trùng', HOM_NAY);
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'ngayDat', value: HOM_NAY });
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'phanHoi', value: 'Sự cố' });
+
+    const r = await api('POST', `/api/don-kinh/${don.id}/thung-rac`);
+    expect(r.status).toBe(200);
+    expect(r.body.thungRac).toBe(true);
+    for (const path of [`/api/don-kinh?ngayDat=${HOM_NAY}`, '/api/kinh-hen', '/api/den-hen', '/api/su-co']) {
+      expect((await api('GET', path)).body, path).toEqual([]);
+    }
+    expect((await api('GET', '/api/thung-rac')).body.map((d: { id: string }) => d.id)).toEqual([don.id]);
+  });
+
+  it('khôi phục thì đơn quay lại mọi trang, không mất dữ liệu', async () => {
+    const don = await taoDonHen('Bỏ nhầm', HOM_NAY);
+    await api('POST', `/api/don-kinh/${don.id}/thung-rac`);
+    const r = await api('POST', `/api/don-kinh/${don.id}/khoi-phuc`);
+    expect(r.body.thungRac).toBe(false);
+    expect(r.body.sdt).toBe(DU_THONG_TIN.sdt);
+    expect((await api('GET', '/api/den-hen')).body.map((d: { id: string }) => d.id)).toEqual([don.id]);
+    expect((await api('GET', '/api/thung-rac')).body).toEqual([]);
+  });
+
+  it('đơn mới không nằm trong Thùng rác; báo 404 với đơn không tồn tại', async () => {
+    const { body } = await api('POST', '/api/don-kinh', { ten: 'Mới' });
+    expect(body.thungRac).toBe(false);
+    expect((await api('POST', '/api/don-kinh/khong-co/thung-rac')).status).toBe(404);
+    expect((await api('POST', '/api/don-kinh/khong-co/khoi-phuc')).status).toBe(404);
+  });
+});
+
 describe('Danh sách lựa chọn', () => {
   it('có sẵn các giá trị mặc định', async () => {
     const r = await api('GET', '/api/danh-sach');
