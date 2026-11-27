@@ -16,8 +16,11 @@ export interface ThayDoiO {
 export interface KenhSheet {
   /** Ghi các ô lên Sheet. Ô trùng thì giá trị gửi lên ghi đè (local thắng). Lỗi mạng thì ném lỗi. */
   day(thayDoi: ThayDoiO[]): Promise<void>;
-  /** Các ô đã đổi trên Sheet sau mốc `moc`; `moc` mới để lần sau hỏi tiếp. Lần đầu dùng mốc 0. */
-  keo(moc: number): Promise<{ thayDoi: ThayDoiO[]; moc: number }>;
+  /**
+   * Các ô đã đổi trên Sheet sau mốc `moc`; `moc` mới để lần sau hỏi tiếp. Lần đầu dùng mốc 0.
+   * Kèm tài khoản đăng nhập trong tab Cài đặt (#13) để exe và bản online dùng chung một mật khẩu.
+   */
+  keo(moc: number): Promise<{ thayDoi: ThayDoiO[]; moc: number; taiKhoan?: { ten: string; matKhau: string } }>;
 }
 
 export const laTruongDongBo = (s: string): s is TruongDongBo => (TRUONG_DONG_BO as readonly string[]).includes(s);

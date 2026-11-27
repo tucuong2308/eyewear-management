@@ -5,7 +5,9 @@ import {
   suCo, themVaoDanhSach, timDon, type DanhSach, type DonKinh, type LoaiDanhSach, type TruongSuaDuoc,
 } from '../core/don-kinh.js';
 import type { ThayDoiO } from '../core/dong-bo.js';
-import { THOI_HAN_MS, bamMaPhien, cookiePhien, docMaPhien, dungTaiKhoan, taoMaPhien, type TaiKhoan } from './dang-nhap.js';
+import {
+  THOI_HAN_MS, bamMaPhien, cookiePhien, docMaPhien, dungTaiKhoan, taoMaPhien, thanhTaiKhoanBam, type TaiKhoan, type TaiKhoanBam,
+} from './dang-nhap.js';
 
 /** Một ô đã sửa nhưng chưa đẩy lên Sheet; `luc` tăng dần để biết ô có bị sửa tiếp không. */
 export interface OChoDay extends ThayDoiO {
@@ -37,10 +39,13 @@ export interface Kho {
   taoPhien(maBam: string, hetHan: number): Promise<void>;
   phienConHan(maBam: string, bayGio: number): CoThe<boolean>;
   xoaPhien(maBam: string): Promise<void>;
+  /** Đăng xuất mọi thiết bị (khi đổi mật khẩu ở tab Cài đặt). */
+  xoaMoiPhien(): Promise<void>;
 }
 
 export interface MoiTruongApi {
   kho: Kho;
+  /** Tài khoản cấu hình trên máy (config.local.json / Worker secret); tài khoản từ tab Cài đặt của Sheet thắng nếu có. */
   taiKhoan: TaiKhoan;
   /** Ngày hôm nay YYYY-MM-DD theo giờ Việt Nam. */
   today(): string;
@@ -79,6 +84,16 @@ export async function xuLyApi(req: Request, mt: MoiTruongApi): Promise<Response>
   }
 }
 
+/** Trạng thái lưu tài khoản kéo về từ tab Cài đặt (mật khẩu dạng băm). */
+export const TT_TEN = 'tkTen';
+export const TT_MAT_KHAU_BAM = 'tkMatKhauBam';
+
+async function taiKhoanDung(mt: MoiTruongApi): Promise<TaiKhoanBam> {
+  const ten = await mt.kho.trangThai(TT_TEN);
+  const matKhauBam = await mt.kho.trangThai(TT_MAT_KHAU_BAM);
+  return ten && matKhauBam ? { ten, matKhauBam } : thanhTaiKhoanBam(mt.taiKhoan);
+}
+
 async function xuLy(req: Request, mt: MoiTruongApi): Promise<Response> {
   const { kho } = mt;
   const url = new URL(req.url);
@@ -88,10 +103,11 @@ async function xuLy(req: Request, mt: MoiTruongApi): Promise<Response> {
 
   if (p === '/api/dang-nhap' && m === 'POST') {
     const body = await docJson(req);
-    if (!dungTaiKhoan(mt.taiKhoan, body.ten, body.matKhau)) return json(401, { loi: 'Sai tên đăng nhập hoặc mật khẩu' });
+    const tk = await taiKhoanDung(mt);
+    if (!dungTaiKhoan(tk, body.ten, body.matKhau)) return json(401, { loi: 'Sai tên đăng nhập hoặc mật khẩu' });
     const ma = taoMaPhien();
     await kho.taoPhien(bamMaPhien(ma), mt.bayGio() + THOI_HAN_MS);
-    return json(200, { ten: mt.taiKhoan.ten }, cookie(ma, THOI_HAN_MS / 1000));
+    return json(200, { ten: tk.ten }, cookie(ma, THOI_HAN_MS / 1000));
   }
   const ma = docMaPhien(req.headers.get('cookie'));
   if (p === '/api/dang-xuat' && m === 'POST') {
@@ -110,7 +126,7 @@ async function xuLy(req: Request, mt: MoiTruongApi): Promise<Response> {
       loiCuoi: (await kho.trangThai('loiCuoi')) ?? null,
     });
   }
-  if (p === '/api/phien' && m === 'GET') return json(200, { ten: mt.taiKhoan.ten });
+  if (p === '/api/phien' && m === 'GET') return json(200, { ten: (await taiKhoanDung(mt)).ten });
   if (p === '/api/don-kinh' && m === 'GET') return json(200, await kho.theoNgayDat(url.searchParams.get('ngayDat') ?? mt.today()));
   if (p === '/api/don-kinh' && m === 'POST') {
     const body = await docJson(req);

@@ -27,6 +27,8 @@ describe('Apps Script: khởi tạo Sheet', () => {
     // TỔNG giống file mẫu, Nguồn tròng là 4 ô tick
     expect(b.doc(TAB.don)[0]).toEqual(TIEU_DE_TONG);
     expect(b.cotTick.get(TAB.don)).toEqual([9, 10, 11, 12]);
+    // cột MÃ ĐƠN bị khóa (#13)
+    expect([...b.khoa.get(TAB.don)!]).toEqual([TIEU_DE_TONG.indexOf('MÃ ĐƠN')]);
     // KÍNH HẸN, SỰ CỐ là công thức lọc từ TỔNG, đặt ở ô A2
     for (const x of TAB_XEM) {
       expect(b.doc(x.ten)[0]).toEqual(x.tieuDe);
@@ -63,7 +65,7 @@ describe('Apps Script: giao kèo đồng bộ', () => {
     expect(don[2]![tieuDe.indexOf('MÃ ĐƠN')]).toBe('d2');
 
     const k = xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 2 }, LUC);
-    expect(k).toEqual({ ok: true, moc: 4, thayDoi: [{ id: 'd2', truong: 'ten', giaTri: 'BÌNH' }, { id: 'd1', truong: 'thungRac', giaTri: '1' }] });
+    expect(k).toMatchObject({ ok: true, moc: 4, thayDoi: [{ id: 'd2', truong: 'ten', giaTri: 'BÌNH' }, { id: 'd1', truong: 'thungRac', giaTri: '1' }] });
   });
 
   it('ghi gộp: một lô đẩy chỉ gọi ghi Sheet vài lần và không ghi đè dòng không đổi', () => {
@@ -105,7 +107,7 @@ describe('Apps Script: giao kèo đồng bộ', () => {
     ghiNhanSuaTay(b, TAB.don, 0, cotHen, 'tiêu đề', LUC);
     ghiNhanSuaTay(b, TAB.don, 1, tieuDe.indexOf('MÃ ĐƠN'), 'đổi mã', LUC);
     ghiNhanSuaTay(b, TAB.danhSach, 1, 1, 'khác tab', LUC);
-    expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 1 }, LUC)).toEqual({
+    expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 1 }, LUC)).toMatchObject({
       ok: true, moc: 2, thayDoi: [{ id: 'd1', truong: 'ngayHen', giaTri: '2026-11-30' }],
     });
   });
@@ -119,15 +121,26 @@ describe('Apps Script: giao kèo đồng bộ', () => {
 
     // nhân viên tick ô KÍNH ĐẶT trên Sheet (onEdit chạy sau khi ô đã đổi)
     b.tabs.get(TAB.don)![1]![tieuDe.indexOf('KÍNH ĐẶT')] = 'TRUE';
+    b.lanGhi = [];
     ghiNhanSuaTay(b, TAB.don, 1, tieuDe.indexOf('KÍNH ĐẶT'), 'TRUE', LUC);
+    // chỉ ghi lại ô tick bị bỏ (KÍNH SẴN) và nhật ký, không ghi cả dòng (cột MÃ ĐƠN đã khóa)
+    expect(b.lanGhi.map((g) => g.ten)).toEqual([TAB.don, TAB.nhatKy]);
     expect([o('KÍNH SẴN'), o('KÍNH ĐẶT')]).toEqual(['FALSE', 'TRUE']);
-    expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 1 }, LUC)).toEqual({
+    expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 1 }, LUC)).toMatchObject({
       ok: true, moc: 2, thayDoi: [{ id: 'd1', truong: 'nguon', giaTri: 'Kính đặt' }],
     });
 
     // nguồn thêm qua "Khác…" nằm ở NGUỒN KHÁC, không tick ô nào
     xuLyYeuCau(b, { hanhDong: 'day', khoa, thayDoi: [{ id: 'd1', truong: 'nguon', giaTri: 'Mượn tròng' }] }, LUC);
     expect([o('KÍNH ĐẶT'), o('NGUỒN KHÁC')]).toEqual(['FALSE', 'Mượn tròng']);
+  });
+});
+
+it('kéo trả kèm tài khoản trong tab Cài đặt (tên, mật khẩu)', () => {
+  const { b, khoa } = sheetMoi();
+  const cd = docCaiDat(b);
+  expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 0 }, LUC)).toMatchObject({
+    taiKhoan: { ten: cd[CAI_DAT.ten], matKhau: cd[CAI_DAT.matKhau] },
   });
 });
 
@@ -141,6 +154,8 @@ describe('Từ đầu đến cuối: exe ↔ HTTP ↔ phần xử lý Apps Scrip
 
   it('đơn tạo ở Máy quầy lên Sheet; ô sửa tay trên Sheet về Máy quầy', async () => {
     const { b, khoa } = sheetMoi();
+    const tk = { ten: 'cuahang', matKhau: 'mk' };
+    b.datCaiDat(TAB.caiDat, CAI_DAT.matKhau, tk.matKhau);
     http = createServer(async (req, res) => {
       let s = '';
       for await (const c of req) s += c;
@@ -150,7 +165,6 @@ describe('Từ đầu đến cuối: exe ↔ HTTP ↔ phần xử lý Apps Scrip
     const url = `http://127.0.0.1:${(http.address() as { port: number }).port}`;
 
     dir = mkdtempSync(join(tmpdir(), 'so-don-kinh-e2e-'));
-    const tk = { ten: 'cuahang', matKhau: 'mk' };
     const server = await startServer({
       fileDuLieu: join(dir, 'So-don-kinh.xlsx'), port: 0, host: '127.0.0.1', today: () => '2026-11-27', taiKhoan: tk,
       kenhSheet: new KenhAppsScript({ url, khoa }), chuKyDongBo: 0,

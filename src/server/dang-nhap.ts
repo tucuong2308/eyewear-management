@@ -11,10 +11,22 @@ export const THOI_HAN_MS = 30 * 24 * 60 * 60 * 1000;
 
 const bam = (s: string) => createHash('sha256').update(s, 'utf8').digest();
 
-/** So sánh không lộ thời gian, kể cả khi độ dài khác nhau. */
-export function dungTaiKhoan(tk: TaiKhoan, ten: unknown, matKhau: unknown): boolean {
-  const a = timingSafeEqual(bam(String(ten ?? '').trim()), bam(tk.ten));
-  const b = timingSafeEqual(bam(String(matKhau ?? '')), bam(tk.matKhau));
+/** Tài khoản với mật khẩu đã băm: tài khoản lấy từ tab Cài đặt được lưu dạng này, không lưu chữ thật. */
+export interface TaiKhoanBam {
+  ten: string;
+  matKhauBam: string;
+}
+
+export const bamMatKhau = (matKhau: string) => bam(matKhau).toString('hex');
+
+export const thanhTaiKhoanBam = (tk: TaiKhoan): TaiKhoanBam => ({ ten: tk.ten, matKhauBam: tk.matKhau ? bamMatKhau(tk.matKhau) : '' });
+
+/** So sánh không lộ thời gian, kể cả khi độ dài khác nhau. Tài khoản thiếu tên hoặc mật khẩu thì luôn từ chối. */
+export function dungTaiKhoan(tk: TaiKhoan | TaiKhoanBam, ten: unknown, matKhau: unknown): boolean {
+  const tkb = 'matKhauBam' in tk ? tk : thanhTaiKhoanBam(tk);
+  if (!tkb.ten?.trim() || !/^[0-9a-f]{64}$/.test(tkb.matKhauBam)) return false;
+  const a = timingSafeEqual(bam(String(ten ?? '').trim()), bam(tkb.ten.trim()));
+  const b = timingSafeEqual(bam(String(matKhau ?? '')), Buffer.from(tkb.matKhauBam, 'hex'));
   return a && b;
 }
 

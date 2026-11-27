@@ -17,20 +17,36 @@ export class BangTinhGia implements BangTinh {
     if (tuyChon.an) this.an.add(ten);
     if (tuyChon.cotTick) this.cotTick.set(ten, tuyChon.cotTick);
   }
+  /** Sửa ô Giá trị của một dòng trong tab Cài đặt (như chủ cửa hàng sửa tay). */
+  datCaiDat(tab: string, ten: string, giaTri: string) {
+    const h = this.tabs.get(tab)!.find((r) => r[0] === ten)!;
+    h[1] = giaTri;
+  }
   ghiCongThuc(ten: string, hang: number, cot: number, congThuc: string) {
     this.congThuc.set(`${ten}!${hang},${cot}`, congThuc);
   }
   doc(ten: string) {
     return (this.tabs.get(ten) ?? []).map((h) => [...h]);
   }
-  ghiVung(ten: string, hangDau: number, giaTri: string[][]) {
+  /** Cột bị khóa: tab → các cột. */
+  khoa = new Map<string, Set<number>>();
+
+  ghiVung(ten: string, hangDau: number, giaTri: string[][], cotDau = 0) {
     if (!giaTri.length) return;
     this.lanGhi.push({ ten, hangDau, soHang: giaTri.length });
     const t = this.tabs.get(ten)!;
     giaTri.forEach((h, i) => {
       while (t.length <= hangDau + i) t.push([]);
-      t[hangDau + i] = [...h];
+      const dong = t[hangDau + i]!;
+      h.forEach((v, j) => {
+        while (dong.length < cotDau + j) dong.push('');
+        dong[cotDau + j] = v;
+      });
     });
+  }
+  khoaCot(ten: string, cot: number) {
+    if (!this.khoa.has(ten)) this.khoa.set(ten, new Set());
+    this.khoa.get(ten)!.add(cot);
   }
   themHang(ten: string, hang: string[][]) {
     this.ghiVung(ten, this.tabs.get(ten)!.length, hang);

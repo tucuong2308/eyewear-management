@@ -203,6 +203,12 @@ export class KhoExcel implements Kho {
     });
   }
 
+  xoaMoiPhien(): Promise<void> {
+    return this.capNhatKhiDuoc(() => {
+      this.d.phien = {};
+    });
+  }
+
   xoaPhien(maBam: string): Promise<void> {
     return this.capNhatKhiDuoc(() => {
       delete this.d.phien[maBam];

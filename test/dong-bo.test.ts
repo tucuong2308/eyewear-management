@@ -22,7 +22,8 @@ async function startAt() {
   base = `http://127.0.0.1:${server.port}`;
   cookie = '';
   const r = await fetch(base + '/api/dang-nhap', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(TAI_KHOAN) });
-  cookie = r.headers.get('set-cookie')!.split(';')[0]!;
+  // sau khi tài khoản Sheet thay tài khoản config thì lần đăng nhập này thất bại: để test tự đăng nhập
+  cookie = r.headers.get('set-cookie')?.split(';')[0] ?? '';
 }
 
 async function api(method: string, path: string, body?: unknown) {
@@ -138,6 +139,44 @@ describe('Đồng bộ exe ↔ Google Sheet', () => {
     expect((await api('GET', '/api/dong-bo')).body.lanCuoiThanhCong).toBeNull();
     await server.dongBo();
     expect(typeof (await api('GET', '/api/dong-bo')).body.lanCuoiThanhCong).toBe('number');
+  });
+});
+
+describe('Tài khoản đăng nhập lấy từ tab Cài đặt của Sheet (#13)', () => {
+  const dangNhap = (tk: { ten: string; matKhau: string }) => fetch(base + '/api/dang-nhap', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(tk),
+  });
+
+  it('chưa đồng bộ được thì dùng tài khoản trong config.local.json', async () => {
+    expect((await dangNhap(TAI_KHOAN)).status).toBe(200);
+  });
+
+  it('đổi mật khẩu trong tab Cài đặt: sau lần đồng bộ, mật khẩu mới có hiệu lực, mật khẩu cũ và các phiên cũ hết hiệu lực', async () => {
+    sheet.taiKhoan = { ten: 'cuahang', matKhau: 'mat-khau-sheet' };
+    await server.dongBo();
+    // phiên cũ (đăng nhập bằng mật khẩu trong config) bị đăng xuất
+    expect((await api('GET', '/api/kinh-hen')).status).toBe(401);
+    expect((await dangNhap(TAI_KHOAN)).status).toBe(401);
+    const r = await dangNhap(sheet.taiKhoan);
+    expect(r.status).toBe(200);
+    cookie = r.headers.get('set-cookie')!.split(';')[0]!;
+    expect((await api('GET', '/api/phien')).body).toEqual({ ten: 'cuahang' });
+
+    // đồng bộ lại mà không đổi gì thì không đăng xuất ai
+    await server.dongBo();
+    expect((await api('GET', '/api/kinh-hen')).status).toBe(200);
+
+    // tài khoản vẫn còn sau khi khởi động lại, kể cả lúc mất mạng
+    sheet.coMang = false;
+    await server.close();
+    await startAt();
+    expect((await dangNhap(sheet.taiKhoan)).status).toBe(200);
+  });
+
+  it('tab Cài đặt để trống mật khẩu thì bỏ qua, vẫn dùng tài khoản cũ', async () => {
+    sheet.taiKhoan = { ten: 'cuahang', matKhau: '' };
+    await server.dongBo();
+    expect((await dangNhap(TAI_KHOAN)).status).toBe(200);
   });
 });
 

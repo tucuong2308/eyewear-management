@@ -34,18 +34,27 @@ class BangTinhGas implements BangTinh {
   doc(ten: string): string[][] {
     return this.tab(ten).getDataRange().getDisplayValues();
   }
-  ghiVung(ten: string, hangDau: number, giaTri: string[][]) {
+  ghiVung(ten: string, hangDau: number, giaTri: string[][], cotDau = 0) {
     if (!giaTri.length) return;
     const sh = this.tab(ten);
-    const vung = sh.getRange(hangDau + 1, 1, giaTri.length, giaTri[0]!.length);
+    const vung = sh.getRange(hangDau + 1, cotDau + 1, giaTri.length, giaTri[0]!.length);
     vung.setNumberFormat('@');
     // Ô tick của dòng mới (kể cả dòng vượt lưới ban đầu): chép kiểu kiểm tra dữ liệu của hàng 2
-    if (ten === TAB.don && hangDau > 1) sh.getRange(2, 1, 1, giaTri[0]!.length).copyTo(vung, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+    if (ten === TAB.don && hangDau > 1) sh.getRange(2, cotDau + 1, 1, giaTri[0]!.length).copyTo(vung, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
     // Ô tick cần giá trị đúng/sai thật, không phải chữ "TRUE"/"FALSE"
     vung.setValues(giaTri.map((h) => h.map((v) => (v === 'TRUE' ? true : v === 'FALSE' ? false : v))));
   }
   themHang(ten: string, hang: string[][]) {
     this.ghiVung(ten, this.tab(ten).getLastRow(), hang);
+  }
+  khoaCot(ten: string, cot: number, moTa: string) {
+    const sh = this.tab(ten);
+    if (sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).some((p: any) => p.getDescription() === moTa)) return;
+    const chu = sh.getRange(1, cot + 1).getA1Notation().replace(/\d+$/, '');
+    const p = sh.getRange(`${chu}2:${chu}`).protect().setDescription(moTa);
+    // Chỉ chủ Sheet sửa được (script đồng bộ chạy bằng tài khoản chủ nên vẫn ghi được)
+    p.removeEditors(p.getEditors());
+    if (p.canDomainEdit()) p.setDomainEdit(false);
   }
   ghiCongThuc(ten: string, hang: number, cot: number, congThuc: string) {
     const o = this.tab(ten).getRange(hang + 1, cot + 1);

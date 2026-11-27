@@ -77,5 +77,7 @@ Rồi **Deploy → Manage deployments → Edit → Version: New version** để 
 ## Lưu ý
 
 - Mọi ô ở các tab được đặt định dạng chữ, để Sheets không tự đổi ngày `2026-11-30` hay số điện thoại `0912…`.
+- **Tab Cài đặt**: Tên đăng nhập và Mật khẩu ở đây là tài khoản của cả exe lẫn bản online (#13); sửa xong, sau lần đồng bộ kế tiếp mọi thiết bị phải đăng nhập lại. Ô để trống thì app giữ tài khoản cũ.
+- Cột **MÃ ĐƠN** bị khóa (chỉ chủ Sheet sửa được); chạy lại `caiDat` để khóa trên Sheet đã tạo trước đó.
 - Sửa thẳng ô ở tab TỔNG được ghi nhật ký (trigger `onEdit`) để Máy quầy kéo về. Tick một ô nguồn tròng thì các ô nguồn khác tự bỏ tick. Không sửa cột MÃ ĐƠN. Không gõ vào tab KÍNH HẸN, SỰ CỐ (công thức sẽ hỏng).
 - Không xóa hay sắp xếp lại dòng ở tab TỔNG và tab \_Nhật ký: mốc đồng bộ dựa vào thứ tự dòng.

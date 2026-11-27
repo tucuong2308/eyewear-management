@@ -2,7 +2,7 @@
 //
 // Giao kèo HTTP: POST JSON tới URL Web App
 //   { hanhDong: 'day', khoa, thayDoi: ThayDoiO[] }  →  { ok: true }
-//   { hanhDong: 'keo', khoa, moc: number }          →  { ok: true, thayDoi: ThayDoiO[], moc: number }
+//   { hanhDong: 'keo', khoa, moc: number }          →  { ok: true, thayDoi: ThayDoiO[], moc: number, taiKhoan: { ten, matKhau } }
 //   lỗi                                             →  { ok: false, loi: string }
 // `khoa` là khóa bí mật trong tab Cài đặt của Sheet, chỉ Máy quầy biết.
 import type { KenhSheet, ThayDoiO } from '../core/dong-bo.js';
@@ -21,7 +21,9 @@ export class KenhAppsScript implements KenhSheet {
 
   async keo(moc: number) {
     const r = await this.goi({ hanhDong: 'keo', moc });
-    return { thayDoi: (r.thayDoi ?? []) as ThayDoiO[], moc: Number(r.moc) };
+    const tk = r.taiKhoan as { ten?: unknown; matKhau?: unknown } | undefined;
+    const taiKhoan = tk && typeof tk.ten === 'string' && typeof tk.matKhau === 'string' ? { ten: tk.ten, matKhau: tk.matKhau } : undefined;
+    return { thayDoi: (r.thayDoi ?? []) as ThayDoiO[], moc: Number(r.moc), taiKhoan };
   }
 
   private async goi(body: Record<string, unknown>): Promise<Record<string, unknown>> {
