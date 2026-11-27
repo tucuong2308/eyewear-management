@@ -9,12 +9,8 @@ Người đến cửa hàng làm kính (tên, tuổi, số điện thoại). M�
 _Avoid_: Khách hàng, BN, khách
 
 **Nhân viên**:
-Người làm ở cửa hàng, có tài khoản đăng nhập; có thể là Người tư vấn hoặc Người cắt của một Đơn kính.
+Người làm ở cửa hàng; có thể là Người tư vấn hoặc Người cắt của một Đơn kính. Cả cửa hàng dùng chung một tài khoản đăng nhập.
 _Avoid_: User, tài khoản
-
-**Quản lý**:
-Nhân viên có quyền quản lý danh sách nhân viên và các danh sách lựa chọn.
-_Avoid_: Admin
 
 ## Đơn kính
 
@@ -47,5 +43,12 @@ Kính đang ở bước nào: Chưa cắt, Đã cắt – chưa trả, Ship, Đ�
 _Avoid_: Xong, done
 
 **Phản hồi**:
-Đánh giá của Bệnh nhân khi nhận kính: Tốt, Không tốt, hoặc Khác.
+Đánh giá của Bệnh nhân khi nhận kính: Tốt, Không tốt, Sự cố, hoặc Khác.
 _Avoid_: Tích cực
+
+**Sự cố**:
+Phản hồi cho biết Đơn kính có vấn đề cần xử lý lại (ví dụ cắt sai độ).
+
+**Thùng rác**:
+Nơi chứa các Đơn kính đã bị bỏ đi; khôi phục lại được.
+_Avoid_: Xóa
