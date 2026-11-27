@@ -60,9 +60,12 @@ export function donMoi(id: string, ten: string, ngayDat: string): DonKinh {
 /** Hoàn thành = Tình trạng kính "Đã trả" (không phải một trường riêng). */
 export const DA_TRA = 'Đã trả';
 
-/** Phải có trước khi Hoàn thành: mọi trường trừ ADD, thời gian ship, địa chỉ ship, ghi chú (và Tình trạng kính, do Hoàn thành tự đặt). */
+/**
+ * Trường bắt buộc (chủ cửa hàng chốt 2026-11-27): thiếu thì ô tô đỏ ở mọi nơi Đơn kính hiển thị,
+ * và không Hoàn thành được. Người tư vấn, Người cắt, Phản hồi, ADD, ship, ghi chú không bắt buộc.
+ */
 export const TRUONG_BAT_BUOC: readonly TruongSuaDuoc[] = [
-  'ten', 'tuoi', 'sdt', 'mp', 'mt', 'hang', 'loai', 'nguon', 'ngayDat', 'ngayHen', 'ttTrong', 'tuVan', 'cat', 'phanHoi',
+  'ten', 'tuoi', 'sdt', 'mp', 'mt', 'hang', 'loai', 'nguon', 'ngayDat', 'ngayHen', 'ttTrong', 'ttKinh',
 ];
 
 const trong = (v: string | undefined) => !v || !v.trim();
