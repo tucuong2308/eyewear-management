@@ -173,6 +173,52 @@ describe('Hoàn thành', () => {
   });
 });
 
+describe('Danh sách lựa chọn', () => {
+  it('có sẵn các giá trị mặc định', async () => {
+    const r = await api('GET', '/api/danh-sach');
+    expect(r.status).toBe(200);
+    expect(r.body.nguon).toEqual(['Kính sẵn', 'Ký gửi', 'Kính đặt', 'Đặt đánh']);
+    expect(r.body.ttTrong).toEqual(['Chưa đặt', 'Đã đặt – đang giao', 'Đã có']);
+    expect(r.body.ttKinh).toEqual(['Chưa cắt', 'Đã cắt – chưa trả', 'Ship', 'Đã trả']);
+    expect(r.body.phanHoi).toEqual(['Tốt', 'Không tốt', 'Sự cố', 'Khác']);
+    expect(r.body.hang).toContain('FANO');
+    expect(r.body.nhanVien).toEqual([]);
+  });
+
+  it('thêm giá trị qua "Khác…" thì giá trị đó có trong danh sách cho mọi đơn sau', async () => {
+    const r = await api('POST', '/api/danh-sach/nguon', { giaTri: '  Mượn tròng  ' });
+    expect(r.status).toBe(201);
+    expect(r.body).toEqual(['Kính sẵn', 'Ký gửi', 'Kính đặt', 'Đặt đánh', 'Mượn tròng']);
+    expect((await api('GET', '/api/danh-sach')).body.nguon).toContain('Mượn tròng');
+  });
+
+  it('không thêm trùng, kể cả khác hoa thường', async () => {
+    await api('POST', '/api/danh-sach/hang', { giaTri: 'Rodenstock' });
+    const r = await api('POST', '/api/danh-sach/hang', { giaTri: 'RODENSTOCK' });
+    expect(r.body.filter((h: string) => h.toLowerCase() === 'rodenstock')).toHaveLength(1);
+  });
+
+  it('thêm được Nhân viên để chọn Người tư vấn và Người cắt', async () => {
+    const r = await api('POST', '/api/danh-sach/nhanVien', { giaTri: 'Lan' });
+    expect(r.body).toEqual(['Lan']);
+  });
+
+  it('từ chối danh sách không cho thêm và giá trị rỗng', async () => {
+    expect((await api('POST', '/api/danh-sach/ttKinh', { giaTri: 'Mất kính' })).status).toBe(400);
+    expect((await api('POST', '/api/danh-sach/khongCo', { giaTri: 'x' })).status).toBe(400);
+    expect((await api('POST', '/api/danh-sach/hang', { giaTri: '  ' })).status).toBe(400);
+  });
+
+  it('gợi ý Loại tròng từ các loại đã nhập, không trùng', async () => {
+    for (const [ten, loai] of [['A', 'FANO 1.61'], ['B', 'ZEISS 1.60'], ['C', 'FANO 1.61'], ['D', '']]) {
+      const { body } = await api('POST', '/api/don-kinh', { ten });
+      if (loai) await api('PATCH', `/api/don-kinh/${body.id}`, { field: 'loai', value: loai });
+    }
+    const r = await api('GET', '/api/danh-sach');
+    expect(r.body.goiYLoai).toEqual(['FANO 1.61', 'ZEISS 1.60']);
+  });
+});
+
 describe('Danh sách theo ngày', () => {
   it('chỉ trả về đơn có Ngày đặt bằng ngày được hỏi, theo thứ tự tạo', async () => {
     await api('POST', '/api/don-kinh', { ten: 'Một' });
