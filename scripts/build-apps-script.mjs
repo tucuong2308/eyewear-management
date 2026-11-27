@@ -1,10 +1,11 @@
-// Đóng gói code Apps Script: npm run build:apps-script → dist/apps-script/ (Code.js + appsscript.json)
+// Đóng gói code Apps Script: npm run build:apps-script → apps-script/dist/ (Code.js + appsscript.json)
 // Đưa lên Google: cd apps-script && npx @google/clasp push   (xem docs/apps-script.md)
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { build } from 'esbuild';
 
-const OUT = join('dist', 'apps-script');
+// Nằm trong apps-script/ vì clasp 3 từ chối rootDir ở ngoài thư mục dự án clasp
+const OUT = join('apps-script', 'dist');
 mkdirSync(OUT, { recursive: true });
 
 const kq = await build({
