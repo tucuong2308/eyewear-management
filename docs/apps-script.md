@@ -36,6 +36,16 @@ Code Apps Script nằm ở `src/apps-script/`. Phần xử lý (`xu-ly.ts`) có 
 
    Web App mở cho mọi người nhưng mọi yêu cầu phải mang đúng khóa Máy quầy; không có khóa thì bị từ chối.
 
+## Đo tốc độ (#12)
+
+Trên một Sheet **thử** (không phải Sheet thật của cửa hàng):
+
+```sh
+npm run do-toc-do -- "<Web app URL>" "<Khóa Máy quầy>" --tao-du-lieu
+```
+
+In trung vị và p90 của "tải danh sách" (1.000 đơn) và "lưu 1 ô". Ghi kết quả vào ADR 0002.
+
 ## Nối Máy quầy với Sheet
 
 Thêm vào `config.local.json` trong thư mục dữ liệu của exe (`%LOCALAPPDATA%\SoDonKinh`), rồi khởi động lại exe:

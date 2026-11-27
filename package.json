@@ -11,7 +11,8 @@
     "test": "vitest run",
     "build:exe": "node scripts/build-exe.mjs",
     "nhap-thang-11": "esbuild scripts/nhap-thang-11.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/nhap-thang-11.mjs --log-level=warning && node dist/nhap-thang-11.mjs",
-    "build:apps-script": "node scripts/build-apps-script.mjs"
+    "build:apps-script": "node scripts/build-apps-script.mjs",
+    "do-toc-do": "esbuild scripts/do-toc-do.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/do-toc-do.mjs --log-level=warning && node dist/do-toc-do.mjs"
   },
   "repository": {
     "type": "git",
