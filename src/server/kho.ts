@@ -46,6 +46,10 @@ export class KhoDonKinh {
     return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh WHERE ngayDat = ? ORDER BY stt`).all(ngay) as DonKinh[];
   }
 
+  tatCa(): DonKinh[] {
+    return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh ORDER BY stt`).all() as DonKinh[];
+  }
+
   dong() {
     this.db.close();
   }

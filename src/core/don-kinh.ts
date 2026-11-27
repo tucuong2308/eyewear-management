@@ -53,3 +53,47 @@ export function donMoi(id: string, ten: string, ngayDat: string): DonKinh {
   const don = Object.fromEntries(TRUONG_SUA_DUOC.map((f) => [f, ''])) as Record<TruongSuaDuoc, string>;
   return { ...don, id, ten, ngayDat, ttTrong: TT_TRONG_MAC_DINH, ttKinh: TT_KINH_MAC_DINH };
 }
+
+// ---- Kính hẹn, Đến hẹn, Hoàn thành ----
+
+/** Hoàn thành = Tình trạng kính "Đã trả" (không phải một trường riêng). */
+export const DA_TRA = 'Đã trả';
+
+/** Phải có trước khi Hoàn thành: mọi trường trừ ADD, thời gian ship, địa chỉ ship, ghi chú (và Tình trạng kính, do Hoàn thành tự đặt). */
+export const TRUONG_BAT_BUOC: readonly TruongSuaDuoc[] = [
+  'ten', 'tuoi', 'sdt', 'mp', 'mt', 'hang', 'loai', 'nguon', 'ngayDat', 'ngayHen', 'ttTrong', 'tuVan', 'cat', 'phanHoi',
+];
+
+const trong = (v: string | undefined) => !v || !v.trim();
+
+export const daHoanThanh = (d: DonKinh) => d.ttKinh === DA_TRA;
+export const laKinhHen = (d: DonKinh) => !trong(d.ngayHen) && !daHoanThanh(d);
+export const truongConThieu = (d: DonKinh) => TRUONG_BAT_BUOC.filter((f) => trong(d[f]));
+
+export type MucGap = 'qua' | 'gan' | 'sap' | '';
+
+export function soNgay(tu: string, den: string) {
+  return Math.round((Date.parse(den) - Date.parse(tu)) / 864e5);
+}
+
+/** Mức gấp của một Kính hẹn so với hôm nay: quá hẹn, hôm nay/ngày mai, còn 2–5 ngày. */
+export function mucGap(d: DonKinh, homNay: string): MucGap {
+  if (trong(d.ngayHen)) return '';
+  const n = soNgay(homNay, d.ngayHen);
+  return n < 0 ? 'qua' : n <= 1 ? 'gan' : n <= 5 ? 'sap' : '';
+}
+
+/** Kính hẹn có Ngày hẹn hôm nay hoặc đã qua; Ngày hẹn gần hôm nay nhất lên trước. */
+export function denHen(ds: DonKinh[], homNay: string): DonKinh[] {
+  return ds
+    .filter((d) => laKinhHen(d) && d.ngayHen <= homNay)
+    .sort((a, b) => b.ngayHen.localeCompare(a.ngayHen));
+}
+
+export type KetQuaHoanThanh = { ok: true; don: DonKinh } | { ok: false; thieu: TruongSuaDuoc[]; loi: string };
+
+export function hoanThanh(d: DonKinh): KetQuaHoanThanh {
+  const thieu = truongConThieu(d);
+  if (thieu.length) return { ok: false, thieu, loi: `Còn thiếu: ${thieu.map((f) => NHAN[f]).join(', ')}` };
+  return { ok: true, don: { ...d, ttKinh: DA_TRA } };
+}
