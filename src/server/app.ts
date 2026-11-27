@@ -19,6 +19,8 @@ export interface ServerOptions {
   today?: () => string;
   /** Thư mục chứa giao diện đã build (index.html, app.js). */
   webDir?: string;
+  /** Đọc một tệp giao diện theo tên; exe dùng để lấy tệp nhúng sẵn thay cho webDir. */
+  docTepGiaoDien?: (ten: string) => Promise<Buffer>;
   /** Tài khoản chung của cửa hàng. */
   taiKhoan: TaiKhoan;
   /** Thời điểm hiện tại (ms); tiêm vào để test hạn phiên. */
@@ -167,7 +169,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       return res.end('Không tìm thấy');
     }
     try {
-      const data = await readFile(join(webDir, f[0]));
+      const data = opts.docTepGiaoDien ? await opts.docTepGiaoDien(f[0]) : await readFile(join(webDir, f[0]));
       res.writeHead(200, { 'content-type': f[1], 'cache-control': 'no-store' });
       res.end(data);
     } catch {

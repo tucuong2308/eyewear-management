@@ -8,7 +8,8 @@
     "dev": "npm run build:web && tsx src/server/main.ts",
     "build:web": "esbuild src/web/app.ts --bundle --format=esm --outfile=dist/web/app.js --sourcemap && node -e \"require('fs').copyFileSync('src/web/index.html','dist/web/index.html')\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:exe": "node scripts/build-exe.mjs"
   },
   "repository": {
     "type": "git",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@types/node": "^22.10.1",
     "esbuild": "^0.24.0",
+    "postject": "^1.0.0-alpha.6",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"

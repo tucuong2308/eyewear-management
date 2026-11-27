@@ -17,6 +17,26 @@ Mở http://localhost:8080. Dữ liệu lưu ở `data/so-don-kinh.db` (đã n�
 
 **Đăng nhập:** lần chạy đầu tiên tạo `data/config.local.json` với tài khoản `cuahang` và một mật khẩu ngẫu nhiên, in ra màn hình. Đổi tên đăng nhập hoặc mật khẩu bằng cách sửa file đó rồi khởi động lại. File này không bao giờ được commit.
 
+## Đóng gói exe cho Máy quầy
+
+```sh
+npm run build:exe    # → dist/exe/SoDonKinh.exe (một file, không cần cài Node)
+```
+
+Trên Máy quầy, chép `SoDonKinh.exe` vào một thư mục cố định (ví dụ `C:\SoDonKinh`) rồi chạy một lần:
+
+```sh
+SoDonKinh.exe --cai-dat
+```
+
+Lệnh này tạo lối tắt trong thư mục Startup để exe tự chạy cùng Windows, mở cổng 8080 trên Windows Firewall cho mạng riêng (Windows sẽ hỏi quyền quản trị), rồi mở app. Lần chạy đầu tiên mở Notepad với file cấu hình chứa mật khẩu ngẫu nhiên để đổi.
+
+- Bấm đúp `SoDonKinh.exe`: mở app (máy chủ chạy ngầm nếu chưa chạy).
+- Biểu tượng ở khay hệ thống: bấm đúp hoặc "Mở Sổ Đơn Kính" để mở app, "Thoát" để tắt máy chủ.
+- Đóng trình duyệt không làm dừng máy chủ; chỉ một máy chủ chạy tại một thời điểm.
+- Dữ liệu, cấu hình và nhật ký: `%LOCALAPPDATA%\SoDonKinh`.
+- Gỡ tự chạy và quy tắc tường lửa: `SoDonKinh.exe --go-cai-dat`.
+
 ## Kiểm thử
 
 ```sh
