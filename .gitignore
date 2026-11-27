@@ -8,3 +8,9 @@ data/
 node_modules/
 .env
 .env.*
+dist/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+config.local.json

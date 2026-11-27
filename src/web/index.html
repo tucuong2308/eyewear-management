@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ Đơn Kính</title>
+<style>
+/* Layout: thanh trên cố định với các tab; nội dung là bảng kiểu bảng tính (kiểu A của bản thử). */
+:root{
+  --bg:#f4f7f8; --surface:#ffffff; --fg:#132029; --muted:#5a6a76; --line:#dbe3e8;
+  --accent:#0d6b88; --accent-fg:#ffffff; --accent-weak:#e2f0f4;
+  --red:#b9342a; --red-bg:#fbe8e6; --green:#1d7448; --green-bg:#e0f3e8;
+  --f-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0e151b; --surface:#152029; --fg:#e4ecf1; --muted:#93a3af; --line:#24333f;
+  --accent:#4cb1cf; --accent-fg:#0b1a21; --accent-weak:#12303c;
+  --red:#ff8c80; --red-bg:#3b1c19; --green:#6ccd95; --green-bg:#132e1e; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-body)}
+input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .row{display:flex;align-items:center;gap:16px;padding-block:10px}
+.brand{font-weight:700}
+.tabs{display:flex;gap:2px}
+.tabs span{padding:10px 12px;border-bottom:2px solid var(--accent);font-weight:500}
+.page-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-block:18px 6px}
+.page-h h1{font-size:22px;margin:0}
+.page-h .grow{flex:1}
+.muted{color:var(--muted)}
+.saving{font-size:12px;color:var(--muted)}
+.saving.ok{color:var(--green)}
+.saving.err{color:var(--red)}
+.loi{margin-block:8px;padding:10px 14px;border-radius:10px;background:var(--red-bg);color:var(--red)}
+.grid-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-block:8px 40px}
+table{border-collapse:collapse;width:max-content;min-width:100%}
+th{position:sticky;top:0;background:var(--surface);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:600}
+td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:2px}
+td:last-child{border-right:0}
+tr.new td{background:var(--accent-weak)}
+tr.new input::placeholder{color:var(--accent)}
+input.cell{width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:6px;min-width:0}
+input.cell:hover{border-color:var(--line)}
+input.cell:focus{border-color:var(--accent);background:var(--surface);outline:none}
+input.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.w-ten{width:180px}.w-sm{width:64px}.w-rx{width:140px}.w-md{width:130px}.w-lg{width:200px}.w-date{width:140px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
