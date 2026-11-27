@@ -3,7 +3,8 @@ import { createServer, type Server } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CAI_DAT, TAB, docCaiDat, ghiNhanSuaTay, khoiTao, xuLyYeuCau } from '../src/apps-script/xu-ly.js';
+import { CAI_DAT, TAB, TAB_XEM, docCaiDat, ghiNhanSuaTay, khoiTao, xuLyYeuCau } from '../src/apps-script/xu-ly.js';
+import { TIEU_DE_TONG } from '../src/core/bo-cuc.js';
 import { KenhAppsScript } from '../src/server/kenh-apps-script.js';
 import { startServer } from '../src/server/app.js';
 import { BangTinhGia } from './bang-tinh-gia.js';
@@ -21,10 +22,16 @@ function sheetMoi() {
 describe('Apps Script: khởi tạo Sheet', () => {
   it('tạo đủ tab, tiêu đề tiếng Việt, danh sách mặc định, khóa và mật khẩu ngẫu nhiên; chạy lại không đổi', () => {
     const { b, khoa } = sheetMoi();
-    expect([...b.tabs.keys()]).toEqual([TAB.don, TAB.nhatKy, TAB.danhSach, TAB.caiDat]);
+    expect([...b.tabs.keys()]).toEqual([TAB.don, 'KÍNH HẸN', 'SỰ CỐ', TAB.nhatKy, TAB.danhSach, TAB.caiDat]);
     expect(b.an.has(TAB.nhatKy)).toBe(true);
-    expect(b.doc(TAB.don)[0]!.slice(0, 4)).toEqual(['Mã đơn', 'Tên', 'Tuổi', 'SĐT']);
-    expect(b.doc(TAB.don)[0]!.at(-1)).toBe('Thùng rác');
+    // TỔNG giống file mẫu, Nguồn tròng là 4 ô tick
+    expect(b.doc(TAB.don)[0]).toEqual(TIEU_DE_TONG);
+    expect(b.cotTick.get(TAB.don)).toEqual([9, 10, 11, 12]);
+    // KÍNH HẸN, SỰ CỐ là công thức lọc từ TỔNG, đặt ở ô A2
+    for (const x of TAB_XEM) {
+      expect(b.doc(x.ten)[0]).toEqual(x.tieuDe);
+      expect(b.congThuc.get(`${x.ten}!1,0`)).toBe(x.congThuc);
+    }
     expect(b.doc(TAB.danhSach).map((h) => h[1])).toEqual(['Nguồn tròng', 'Kính sẵn', 'Ký gửi', 'Kính đặt', 'Đặt đánh', '', '', '']);
     const cd = docCaiDat(b);
     expect(cd[CAI_DAT.ten]).toBe('cuahang');
@@ -50,9 +57,10 @@ describe('Apps Script: giao kèo đồng bộ', () => {
     const don = b.doc(TAB.don);
     expect(don).toHaveLength(3);
     const tieuDe = don[0]!;
-    expect(don[1]![tieuDe.indexOf('SĐT')]).toBe('0912');
-    expect(don[1]![tieuDe.indexOf('Thùng rác')]).toBe('1');
-    expect(don[2]![0]).toBe('d2');
+    expect(don[1]![tieuDe.indexOf('SDT LIÊN HỆ')]).toBe('0912');
+    expect(don[1]![tieuDe.indexOf('THÙNG RÁC')]).toBe('Có');
+    expect(don[1]![tieuDe.indexOf('MÃ ĐƠN')]).toBe('d1');
+    expect(don[2]![tieuDe.indexOf('MÃ ĐƠN')]).toBe('d2');
 
     const k = xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 2 }, LUC);
     expect(k).toEqual({ ok: true, moc: 4, thayDoi: [{ id: 'd2', truong: 'ten', giaTri: 'BÌNH' }, { id: 'd1', truong: 'thungRac', giaTri: '1' }] });
@@ -77,7 +85,7 @@ describe('Apps Script: giao kèo đồng bộ', () => {
     const don = b.doc(TAB.don);
     const tieuDe = don[0]!;
     expect(don).toHaveLength(104);
-    expect(don[3]![tieuDe.indexOf('SĐT')]).toBe('03');
+    expect(don[3]![tieuDe.indexOf('SDT LIÊN HỆ')]).toBe('03');
     expect(don[103]![tieuDe.indexOf('MT')]).toBe('mt-99');
     expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 0 }, LUC)).toMatchObject({ moc: 505 });
   });
@@ -88,17 +96,38 @@ describe('Apps Script: giao kèo đồng bộ', () => {
     expect(b.doc(TAB.don)).toHaveLength(1);
   });
 
-  it('sửa tay trên tab Đơn kính được ghi nhật ký để Máy quầy kéo về; sửa tiêu đề hay cột Mã đơn thì không', () => {
+  it('sửa tay trên tab TỔNG được ghi nhật ký để Máy quầy kéo về; sửa tiêu đề hay cột Mã đơn thì không', () => {
     const { b, khoa } = sheetMoi();
     xuLyYeuCau(b, { hanhDong: 'day', khoa, thayDoi: [{ id: 'd1', truong: 'ten', giaTri: 'AN' }] }, LUC);
-    const cotHen = b.doc(TAB.don)[0]!.indexOf('Ngày hẹn');
+    const tieuDe = b.doc(TAB.don)[0]!;
+    const cotHen = tieuDe.indexOf('NGÀY HẸN');
     ghiNhanSuaTay(b, TAB.don, 1, cotHen, '2026-11-30', LUC);
     ghiNhanSuaTay(b, TAB.don, 0, cotHen, 'tiêu đề', LUC);
-    ghiNhanSuaTay(b, TAB.don, 1, 0, 'đổi mã', LUC);
+    ghiNhanSuaTay(b, TAB.don, 1, tieuDe.indexOf('MÃ ĐƠN'), 'đổi mã', LUC);
     ghiNhanSuaTay(b, TAB.danhSach, 1, 1, 'khác tab', LUC);
     expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 1 }, LUC)).toEqual({
       ok: true, moc: 2, thayDoi: [{ id: 'd1', truong: 'ngayHen', giaTri: '2026-11-30' }],
     });
+  });
+
+  it('nguồn tròng: đẩy lên thì tick đúng ô; tick ô khác trên Sheet thì bỏ tick ô cũ và Máy quầy nhận nguồn mới', () => {
+    const { b, khoa } = sheetMoi();
+    xuLyYeuCau(b, { hanhDong: 'day', khoa, thayDoi: [{ id: 'd1', truong: 'nguon', giaTri: 'Kính sẵn' }] }, LUC);
+    const tieuDe = b.doc(TAB.don)[0]!;
+    const o = (td: string) => b.doc(TAB.don)[1]![tieuDe.indexOf(td)];
+    expect([o('KÍNH SẴN'), o('KÝ GỬI'), o('KÍNH ĐẶT'), o('ĐẶT ĐÁNH')]).toEqual(['TRUE', 'FALSE', 'FALSE', 'FALSE']);
+
+    // nhân viên tick ô KÍNH ĐẶT trên Sheet (onEdit chạy sau khi ô đã đổi)
+    b.tabs.get(TAB.don)![1]![tieuDe.indexOf('KÍNH ĐẶT')] = 'TRUE';
+    ghiNhanSuaTay(b, TAB.don, 1, tieuDe.indexOf('KÍNH ĐẶT'), 'TRUE', LUC);
+    expect([o('KÍNH SẴN'), o('KÍNH ĐẶT')]).toEqual(['FALSE', 'TRUE']);
+    expect(xuLyYeuCau(b, { hanhDong: 'keo', khoa, moc: 1 }, LUC)).toEqual({
+      ok: true, moc: 2, thayDoi: [{ id: 'd1', truong: 'nguon', giaTri: 'Kính đặt' }],
+    });
+
+    // nguồn thêm qua "Khác…" nằm ở NGUỒN KHÁC, không tick ô nào
+    xuLyYeuCau(b, { hanhDong: 'day', khoa, thayDoi: [{ id: 'd1', truong: 'nguon', giaTri: 'Mượn tròng' }] }, LUC);
+    expect([o('KÍNH ĐẶT'), o('NGUỒN KHÁC')]).toEqual(['FALSE', 'Mượn tròng']);
   });
 });
 
@@ -137,10 +166,10 @@ describe('Từ đầu đến cuối: exe ↔ HTTP ↔ phần xử lý Apps Scrip
       await server.dongBo();
       const bang = b.doc(TAB.don);
       expect(bang).toHaveLength(2);
-      expect(bang[1]![0]).toBe(don.id);
-      expect(bang[1]![bang[0]!.indexOf('Tên')]).toBe('ĐẦU CUỐI');
+      expect(bang[1]![bang[0]!.indexOf('MÃ ĐƠN')]).toBe(don.id);
+      expect(bang[1]![bang[0]!.indexOf('TÊN')]).toBe('ĐẦU CUỐI');
 
-      ghiNhanSuaTay(b, TAB.don, 1, bang[0]!.indexOf('SĐT'), '0933333333', LUC);
+      ghiNhanSuaTay(b, TAB.don, 1, bang[0]!.indexOf('SDT LIÊN HỆ'), '0933333333', LUC);
       await server.dongBo();
       expect((await goi('GET', '/api/don-kinh?ngayDat=2026-11-27'))[0].sdt).toBe('0933333333');
     } finally {

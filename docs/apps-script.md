@@ -28,7 +28,7 @@ Code Apps Script nằm ở `src/apps-script/`. Phần xử lý (`xu-ly.ts`) có 
    ```
 
 4. Mở Apps Script (`cd apps-script && npx @google/clasp open-script`), kiểm tra ô chọn hàm đang là **caiDat** (hàm đầu tiên), bấm **Run**, cấp quyền. Nhật ký thực thi in Khóa Máy quầy. Hàm này:
-   - tạo các tab Đơn kính, Danh sách, Cài đặt và tab ẩn \_Nhật ký;
+   - tạo tab **TỔNG** (cột giống file mẫu cũ, Nguồn tròng là 4 ô tick), **KÍNH HẸN** và **SỰ CỐ** (chỉ xem, tự lọc từ TỔNG), Danh sách, Cài đặt và tab ẩn \_Nhật ký (ADR 0005);
    - tạo **khóa Máy quầy** và mật khẩu ngẫu nhiên trong tab Cài đặt;
    - đặt lịch sao lưu 23:00 hằng đêm vào thư mục Drive "Sổ Đơn Kính - sao lưu" (giữ 30 bản).
 
@@ -77,5 +77,5 @@ Rồi **Deploy → Manage deployments → Edit → Version: New version** để 
 ## Lưu ý
 
 - Mọi ô ở các tab được đặt định dạng chữ, để Sheets không tự đổi ngày `2026-11-30` hay số điện thoại `0912…`.
-- Sửa thẳng ô ở tab Đơn kính được ghi nhật ký (trigger `onEdit`) để Máy quầy kéo về. Không sửa cột Mã đơn.
-- Không xóa hay sắp xếp lại dòng ở tab Đơn kính và tab \_Nhật ký: mốc đồng bộ dựa vào thứ tự dòng.
+- Sửa thẳng ô ở tab TỔNG được ghi nhật ký (trigger `onEdit`) để Máy quầy kéo về. Tick một ô nguồn tròng thì các ô nguồn khác tự bỏ tick. Không sửa cột MÃ ĐƠN. Không gõ vào tab KÍNH HẸN, SỰ CỐ (công thức sẽ hỏng).
+- Không xóa hay sắp xếp lại dòng ở tab TỔNG và tab \_Nhật ký: mốc đồng bộ dựa vào thứ tự dòng.

@@ -71,9 +71,9 @@ describe('Kho Excel: file là dữ liệu chính', () => {
 
     const { ws, hang } = await docTab(TAB_FILE.don);
     expect(hang).toHaveLength(2);
-    expect(hang[1]![cot(hang, 'SĐT')]).toBe('0912345678');
-    expect(hang[1]![cot(hang, 'Mã đơn')]).toBe(a.id);
-    expect(ws.getRow(2).getCell(cot(hang, 'SĐT') + 1).numFmt).toBe('@');
+    expect(hang[1]![cot(hang, 'SDT LIÊN HỆ')]).toBe('0912345678');
+    expect(hang[1]![cot(hang, 'MÃ ĐƠN')]).toBe(a.id);
+    expect(ws.getRow(2).getCell(cot(hang, 'SDT LIÊN HỆ') + 1).numFmt).toBe('@');
 
     await kho.dong();
     kho = await moKho();
@@ -122,8 +122,8 @@ describe('Kho Excel: sửa tay trong Excel', () => {
     await kho.xoaChoDay(kho.choDay());
     const { hang } = await docTab(TAB_FILE.don);
     await suaTrongExcel((ws) => {
-      ws.getRow(2).getCell(cot(hang, 'SĐT') + 1).value = '0911222333';
-      ws.getRow(2).getCell(cot(hang, 'Ngày hẹn') + 1).value = new Date(Date.UTC(2026, 10, 30));
+      ws.getRow(2).getCell(cot(hang, 'SDT LIÊN HỆ') + 1).value = '0911222333';
+      ws.getRow(2).getCell(cot(hang, 'NGÀY HẸN') + 1).value = new Date(Date.UTC(2026, 10, 30));
     });
 
     await kho.docLaiNeuDoi();
@@ -136,8 +136,8 @@ describe('Kho Excel: sửa tay trong Excel', () => {
     const { hang } = await docTab(TAB_FILE.don);
     await suaTrongExcel((ws) => {
       const r = ws.getRow(3);
-      r.getCell(cot(hang, 'Tên') + 1).value = 'BÌNH';
-      r.getCell(cot(hang, 'Ngày đặt') + 1).value = '2026-11-26';
+      r.getCell(cot(hang, 'TÊN') + 1).value = 'BÌNH';
+      r.getCell(cot(hang, 'NGÀY ĐẶT') + 1).value = '2026-11-26';
     });
 
     await kho.docLaiNeuDoi();
@@ -145,16 +145,16 @@ describe('Kho Excel: sửa tay trong Excel', () => {
     expect(binh.id).toMatch(/[0-9a-f-]{36}/);
     expect(kho.choDay().filter((o) => o.id === binh.id).map((o) => o.truong)).toEqual(expect.arrayContaining(['ten', 'ngayDat']));
     const sau = await docTab(TAB_FILE.don);
-    expect(sau.hang[2]![cot(sau.hang, 'Mã đơn')]).toBe(binh.id);
+    expect(sau.hang[2]![cot(sau.hang, 'MÃ ĐƠN')]).toBe(binh.id);
   });
 
   it('file vẫn mở sau khi Lưu: dòng mới giữ đúng một mã qua nhiều lần Lưu, ghi mã khi đóng Excel', async () => {
     const { hang } = await docTab(TAB_FILE.don);
     dangMo = true;
-    await suaTrongExcel((ws) => { ws.getRow(2).getCell(cot(hang, 'Tên') + 1).value = 'CHI'; });
+    await suaTrongExcel((ws) => { ws.getRow(2).getCell(cot(hang, 'TÊN') + 1).value = 'CHI'; });
     await kho.docLaiNeuDoi();
     const id = kho.tatCa()[0]!.id;
-    await suaTrongExcel((ws) => { ws.getRow(2).getCell(cot(hang, 'SĐT') + 1).value = '0123'; });
+    await suaTrongExcel((ws) => { ws.getRow(2).getCell(cot(hang, 'SDT LIÊN HỆ') + 1).value = '0123'; });
     await kho.docLaiNeuDoi();
     expect(kho.tatCa()).toHaveLength(1);
     expect(kho.tatCa()[0]).toMatchObject({ id, ten: 'CHI', sdt: '0123' });
@@ -162,7 +162,7 @@ describe('Kho Excel: sửa tay trong Excel', () => {
     dangMo = false;
     await kho.sua(id, 'tuoi', '40');
     const sau = await docTab(TAB_FILE.don);
-    expect(sau.hang[1]![cot(sau.hang, 'Mã đơn')]).toBe(id);
+    expect(sau.hang[1]![cot(sau.hang, 'MÃ ĐƠN')]).toBe(id);
   });
 
   it('xóa hẳn một dòng trong Excel thì đơn vào Thùng rác, không mất', async () => {
@@ -173,7 +173,40 @@ describe('Kho Excel: sửa tay trong Excel', () => {
     expect(kho.lay(a.id)).toMatchObject({ ten: 'AN', thungRac: true });
     expect(kho.choDay().find((o) => o.id === a.id && o.truong === 'thungRac')?.giaTri).toBe('1');
     const sau = await docTab(TAB_FILE.don);
-    expect(sau.hang.map((h) => h[cot(sau.hang, 'Tên')])).toEqual(['Tên', 'BÌNH', 'AN']);
+    expect(sau.hang.map((h) => h[cot(sau.hang, 'TÊN')])).toEqual(['TÊN', 'BÌNH', 'AN']);
+  });
+
+  it('cột giống file mẫu; nguồn tròng là ô tick đúng/sai; tick ô khác trong Excel thì đổi nguồn và vào hàng chờ', async () => {
+    const a = await kho.tao('AN', '2026-11-27');
+    await kho.sua(a.id, 'nguon', 'Ký gửi');
+    await kho.xoaChoDay(kho.choDay());
+    const { ws, hang } = await docTab(TAB_FILE.don);
+    expect(hang[0]!.slice(0, 4)).toEqual(['PHẢN HỒI', 'TÊN', 'TUỔI', 'SDT LIÊN HỆ']);
+    const o = (td: string) => ws.getRow(2).getCell(cot(hang, td) + 1);
+    expect([o('KÍNH SẴN').value, o('KÝ GỬI').value]).toEqual([false, true]);
+
+    await suaTrongExcel((w) => {
+      w.getRow(2).getCell(cot(hang, 'KÝ GỬI') + 1).value = false;
+      w.getRow(2).getCell(cot(hang, 'ĐẶT ĐÁNH') + 1).value = true;
+    });
+    await kho.docLaiNeuDoi();
+    expect(kho.lay(a.id)?.nguon).toBe('Đặt đánh');
+    expect(kho.choDay().map(({ truong, giaTri }) => [truong, giaTri])).toEqual([['nguon', 'Đặt đánh']]);
+  });
+
+  it('đọc được file kiểu cũ (tab "Đơn kính", tiêu đề cũ) rồi ghi lại theo bố cục mới', async () => {
+    await kho.dong();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Đơn kính');
+    ws.addRow(['Tên', 'Nguồn tròng', 'Ngày đặt', 'Thùng rác', 'Mã đơn']);
+    ws.addRow(['CŨ', 'Kính sẵn', '2026-11-01', '', 'ma-cu']);
+    await wb.xlsx.writeFile(file);
+    kho = await moKho();
+    expect(kho.lay('ma-cu')).toMatchObject({ ten: 'CŨ', nguon: 'Kính sẵn', ngayDat: '2026-11-01' });
+    expect(kho.choDay()).toEqual([]);
+    await kho.sua('ma-cu', 'tuoi', '50');
+    const { hang } = await docTab(TAB_FILE.don);
+    expect(hang[1]![cot(hang, 'KÍNH SẴN')]).toBe('true');
   });
 
   it('sửa Danh sách trong Excel thì app dùng danh sách mới', async () => {
