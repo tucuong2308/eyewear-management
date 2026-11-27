@@ -188,9 +188,23 @@ describe('Hoàn thành', () => {
     const don = await taoDonHen('Thiếu nhiều', HOM_NAY, false);
     const r = await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`);
     expect(r.status).toBe(422);
-    // Tình trạng tròng có giá trị mặc định "Chưa đặt" nên không bị tính là thiếu
-    expect(r.body.thieu).toEqual(['tuoi', 'sdt', 'mp', 'mt', 'hang', 'loai', 'nguon', 'tuVan', 'cat', 'phanHoi']);
+    // Tình trạng tròng và Tình trạng kính có giá trị mặc định nên không bị tính là thiếu
+    expect(r.body.thieu).toEqual(['tuoi', 'sdt', 'mp', 'mt', 'hang', 'loai', 'nguon']);
     expect(r.body.loi).toContain('SĐT');
+  });
+
+  it('Tình trạng kính để trống cũng bị chặn', async () => {
+    const don = await taoDonHen('Xóa tình trạng', HOM_NAY);
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'ttKinh', value: '' });
+    const r = await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`);
+    expect(r.status).toBe(422);
+    expect(r.body.thieu).toEqual(['ttKinh']);
+  });
+
+  it('không bắt buộc Người tư vấn, Người cắt, Phản hồi', async () => {
+    const don = await taoDonHen('Chưa ghi người', HOM_NAY);
+    for (const field of ['tuVan', 'cat', 'phanHoi']) await api('PATCH', `/api/don-kinh/${don.id}`, { field, value: '' });
+    expect((await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`)).status).toBe(200);
   });
 
   it('không bắt buộc ADD, thời gian ship, địa chỉ ship, ghi chú', async () => {

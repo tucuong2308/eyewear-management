@@ -3,7 +3,7 @@
 // Trang Kính hẹn: mọi Kính hẹn, rút gọn cột. Trang Sự cố: đơn có Phản hồi = Sự cố. Trang Thùng rác: khôi phục đơn.
 // Trang Lịch sử: lịch tháng, bấm ngày để xem/sửa/thêm đơn. Trang Tổng: tìm theo tên hoặc SĐT, lọc tháng.
 import {
-  DANH_SACH_CUA_TRUONG, DANH_SACH_THEM_DUOC, NHAN, mucGap, soNgay,
+  DANH_SACH_CUA_TRUONG, DANH_SACH_THEM_DUOC, NHAN, mucGap, soNgay, truongConThieu,
   type DanhSach, type DonKinh, type LoaiDanhSach, type TruongSuaDuoc,
 } from '../core/don-kinh.js';
 
@@ -24,7 +24,6 @@ const COT_KINH_HEN: [TruongSuaDuoc, string][] = [
   ['ngayHen', 'w-date'], ['ten', 'w-ten'], ['sdt', 'w-md'], ['mp', 'w-rx'], ['mt', 'w-rx'], ['hang', 'w-md'],
   ['loai', 'w-lg'], ['ttTrong', 'w-lg'], ['ttKinh', 'w-lg'], ['cat', 'w-md'], ['phanHoi', 'w-ph'], ['ghiChu', 'w-lg'],
 ];
-const RONG = Object.fromEntries(COT_NHAP) as Record<TruongSuaDuoc, string>;
 
 type Trang = 'hom-nay' | 'lich-su' | 'kinh-hen' | 'su-co' | 'tong' | 'thung-rac';
 const TRANG: [Trang, string][] = [
@@ -246,7 +245,7 @@ function o(bang: Bang, don: DonKinh, f: TruongSuaDuoc) {
 /** Bảng nhập đơn của một ngày: trang Hôm nay (hôm nay) và trang Lịch sử (ngày đang chọn). */
 function bangNhap(bang: Bang, rows: DonKinh[], ngayDat: string) {
   if (dienThoai()) return oTaoMoi(bang, ngayDat) + danhSachThe(rows, false, 'Chưa có đơn nào.');
-  const hang = rows.map((d) => `<tr>${COT_NHAP.map(([f, w]) => `<td class="${w}">${o(bang, d, f)}</td>`).join('')}${oXoa(d)}</tr>`).join('');
+  const hang = rows.map((d) => hangDayDu(bang, d)).join('');
   return `<div class="grid-wrap"><table>
     <thead><tr>${COT_NHAP.map(([f]) => `<th>${NHAN[f]}</th>`).join('')}<th></th></tr></thead>
     <tbody>${hang}
@@ -266,14 +265,13 @@ function nhanMuc(d: DonKinh) {
 function bangHen(bang: Bang, rows: DonKinh[], cotGoc: [TruongSuaDuoc, string][], trong: string) {
   if (!rows.length) return `<div class="empty">${trong}</div>`;
   if (dienThoai()) return danhSachThe(rows, true, trong, bang);
-  const thieuO = S.thieu?.bang === bang ? S.thieu : null;
-  const them = (thieuO?.truong ?? [])
-    .filter((f) => !cotGoc.some(([c]) => c === f))
-    .map((f) => [f, RONG[f]] as [TruongSuaDuoc, string]);
+  // Bảng rút gọn: hiện thêm cột của các trường đang thiếu để nhập ngay tại chỗ
+  const thieuTatCa = new Set(rows.flatMap(truongConThieu));
+  const them = COT_NHAP.filter(([f]) => thieuTatCa.has(f) && !cotGoc.some(([c]) => c === f));
   const cot = [...cotGoc, ...them];
   const hang = rows
     .map((d) => {
-      const thieu = thieuO?.id === d.id ? thieuO.truong : [];
+      const thieu = truongConThieu(d);
       return `<tr class="u-${mucGap(d, S.homNay)}">
         <td class="act"><button class="btn small" data-act="hoan-thanh" data-bang="${bang}" data-id="${d.id}">✓ Hoàn thành</button></td>
         <td class="act">${nhanMuc(d)}</td>
@@ -302,10 +300,16 @@ function oXoa(d: DonKinh) {
 function bangDayDu(bang: Bang, rows: DonKinh[], trong: string) {
   if (!rows.length) return `<div class="empty">${trong}</div>`;
   if (dienThoai()) return danhSachThe(rows, false, trong);
-  const hang = rows.map((d) => `<tr>${COT_NHAP.map(([f, w]) => `<td class="${w}">${o(bang, d, f)}</td>`).join('')}${oXoa(d)}</tr>`).join('');
+  const hang = rows.map((d) => hangDayDu(bang, d)).join('');
   return `<div class="grid-wrap"><table>
     <thead><tr>${COT_NHAP.map(([f]) => `<th>${NHAN[f]}</th>`).join('')}<th></th></tr></thead>
     <tbody>${hang}</tbody></table></div>`;
+}
+
+/** Một dòng đầy đủ cột; ô của trường bắt buộc còn trống luôn tô đỏ. */
+function hangDayDu(bang: Bang, d: DonKinh) {
+  const thieu = truongConThieu(d);
+  return `<tr>${COT_NHAP.map(([f, w]) => `<td class="${w} ${thieu.includes(f) ? 'thieu' : ''}">${o(bang, d, f)}</td>`).join('')}${oXoa(d)}</tr>`;
 }
 
 // ---- Điện thoại: thẻ + form ----
@@ -319,13 +323,15 @@ function chipDon(d: DonKinh) {
   if (d.ngayHen && d.ttKinh !== 'Đã trả') chip.push(nhanMuc(d));
   chip.push(`<span class="chip ${d.ttKinh === 'Đã trả' ? 'xong' : 'tron'}">${esc(d.ttKinh)}</span>`);
   if (d.phanHoi === 'Sự cố') chip.push('<span class="chip qua">Sự cố</span>');
+  const thieu = truongConThieu(d);
+  if (thieu.length) chip.push(`<span class="chip qua" title="Còn thiếu: ${thieu.map((f) => NHAN[f]).join(', ')}">Thiếu ${thieu.length}</span>`);
   return chip.join('');
 }
 
 function danhSachThe(rows: DonKinh[], coHoanThanh: boolean, trong: string, bang: Bang = 'nhap') {
   if (!rows.length) return `<div class="empty">${trong}</div>`;
   return `<div class="ds-the">${rows.map((d) => `
-    <div class="the u-${mucGap(d, S.homNay)}">
+    <div class="the u-${mucGap(d, S.homNay)} ${truongConThieu(d).length ? 'co-thieu' : ''}">
       <button type="button" class="the-than" data-act="mo" data-id="${d.id}">
         <span class="ten">${esc(d.ten)}</span>
         <span class="phu">${[d.tuoi && `${esc(d.tuoi)} tuổi`, esc(d.sdt) || 'chưa có SĐT', `đặt ${ngayNgan(d.ngayDat)}`].filter(Boolean).join(' · ')}</span>
@@ -344,7 +350,7 @@ function formDon() {
   if (!S.mo || !dienThoai()) return '';
   const d = tatCaDangHien().find((x) => x.id === S.mo);
   if (!d) return '';
-  const thieu = S.thieu?.bang === 'mo' && S.thieu.id === d.id ? S.thieu.truong : [];
+  const thieu = truongConThieu(d);
   const o1 = (f: TruongSuaDuoc, rong = false) =>
     `<div class="truong ${rong ? 'rong' : ''} ${thieu.includes(f) ? 'thieu' : ''}"><label>${NHAN[f]}</label>${o('mo', d, f)}</div>`;
   const nhom = (tieuDe: string, ...truong: string[]) => `<section><h3>${tieuDe}</h3><div class="luoi">${truong.join('')}</div></section>`;
