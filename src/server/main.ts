@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
+import { networkInterfaces } from 'node:os';
 import { startServer } from './app.js';
 import type { TaiKhoan } from './dang-nhap.js';
 
@@ -22,6 +23,12 @@ const { taiKhoan } = JSON.parse(readFileSync(fileCauHinh, 'utf8')) as { taiKhoan
 
 const server = await startServer({ dbPath: join(dataDir, 'so-don-kinh.db'), port, taiKhoan });
 console.log(`Sổ Đơn Kính đang chạy: http://localhost:${server.port}`);
+// Địa chỉ để điện thoại cùng Wi-Fi mở app
+for (const ds of Object.values(networkInterfaces())) {
+  for (const a of ds ?? []) {
+    if (a.family === 'IPv4' && !a.internal) console.log(`  Trên điện thoại cùng Wi-Fi: http://${a.address}:${server.port}`);
+  }
+}
 
 const tat = () => server.close().then(() => process.exit(0));
 process.on('SIGINT', tat);
