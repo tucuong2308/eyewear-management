@@ -16,6 +16,7 @@ let bayGio = Date.parse('2026-11-27T09:00:00');
 async function startAt(dbPath: string) {
   server = await startServer({
     dbPath, port: 0, host: '127.0.0.1', today: () => HOM_NAY, taiKhoan: TAI_KHOAN, bayGio: () => bayGio,
+    diaChiMang: () => ['192.168.1.20'],
   });
   base = `http://127.0.0.1:${server.port}`;
 }
@@ -421,5 +422,27 @@ describe('Danh sách theo ngày', () => {
     await startAt(dbPath);
     const r = await api('GET', `/api/don-kinh?ngayDat=${HOM_NAY}`);
     expect(r.body.map((d: { ten: string }) => d.ten)).toEqual(['BỀN VỮNG']);
+  });
+});
+
+describe('Địa chỉ mở app trên thiết bị khác', () => {
+  it('trả link mạng nội bộ đã ghép cổng', async () => {
+    const r = await api('GET', '/api/dia-chi');
+    expect(r.status).toBe(200);
+    expect(r.body.links).toEqual([`http://192.168.1.20:${server.port}`]);
+  });
+});
+
+describe('Lọc địa chỉ mạng nội bộ', () => {
+  it('bỏ card ảo, địa chỉ nội bộ máy và 169.254.*; Wi-Fi 192.168.* lên đầu', async () => {
+    const { locDiaChi } = await import('../src/server/cau-hinh.js');
+    const v4 = (address: string, internal = false) => ({ address, family: 'IPv4', internal });
+    expect(locDiaChi({
+      'vEthernet (WSL)': [v4('172.20.16.1')],
+      Ethernet: [v4('10.0.0.5')],
+      'Wi-Fi': [v4('192.168.1.20'), { address: 'fe80::1', family: 'IPv6', internal: false }],
+      'Loopback Pseudo-Interface 1': [v4('127.0.0.1', true)],
+      'Ethernet 2': [v4('169.254.10.3')],
+    })).toEqual(['192.168.1.20', '10.0.0.5']);
   });
 });

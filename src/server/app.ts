@@ -7,6 +7,7 @@ import {
   DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, demTheoNgay, denHen, hoanThanh, kinhHen, laThang, suCo, timDon, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
 } from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
+import { diaChiMangNoiBo } from './cau-hinh.js';
 import { DongBo } from './dong-bo.js';
 import type { KenhSheet } from '../core/dong-bo.js';
 import {
@@ -32,6 +33,8 @@ export interface ServerOptions {
   /** Chu kỳ tự đồng bộ (ms); 0 = không tự chạy (test gọi dongBo()). Mặc định 30 giây. */
   chuKyDongBo?: number;
   ghiLog?: (s: string) => void;
+  /** Địa chỉ mạng nội bộ của máy; tiêm vào để test. */
+  diaChiMang?: () => string[];
 }
 
 export interface RunningServer {
@@ -85,6 +88,11 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     }
     if (!ma || !kho.phienConHan(bamMaPhien(ma), bayGio())) {
       return guiJson(res, 401, { loi: 'Cần đăng nhập' });
+    }
+    if (url.pathname === '/api/dia-chi' && req.method === 'GET') {
+      // Link để mở app trên thiết bị khác cùng mạng (điện thoại, máy khác)
+      const dc = (opts.diaChiMang ?? diaChiMangNoiBo)();
+      return guiJson(res, 200, { links: dc.map((ip) => `http://${ip}:${port}`) });
     }
     if (url.pathname === '/api/dong-bo' && req.method === 'GET') {
       // Không hiện trên giao diện (quyết định của chủ cửa hàng); giữ để bật cảnh báo sau này.
