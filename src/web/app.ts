@@ -2,6 +2,7 @@
 // Trang Hôm nay: bảng nhập Đơn kính hôm nay + bảng Đến hẹn và quá hẹn để bấm Hoàn thành ngay.
 // Trang Kính hẹn: mọi Kính hẹn, rút gọn cột. Trang Sự cố: đơn có Phản hồi = Sự cố. Trang Thùng rác: khôi phục đơn.
 // Trang Lịch sử: lịch tháng, bấm ngày để xem/sửa/thêm đơn. Trang Tổng: tìm theo tên hoặc SĐT, lọc tháng.
+import qrcode from 'qrcode-generator';
 import {
   DANH_SACH_CUA_TRUONG, DANH_SACH_THEM_DUOC, NHAN, mucGap, soNgay, truongConThieu,
   type DanhSach, type DonKinh, type LoaiDanhSach, type TruongSuaDuoc,
@@ -61,6 +62,9 @@ const S = {
   daDangNhap: null as boolean | null,
   /** Đơn kính đang mở trong form (điện thoại). */
   mo: null as string | null,
+  /** Bảng "Mở trên thiết bị khác": các link mạng nội bộ; null = đang đóng. */
+  chiaSe: null as string[] | null,
+  daSaoChep: -1,
   loiDangNhap: '',
   trangThai: '' as '' | 'dang' | 'ok' | 'loi',
   thongBao: null as ThongBao | null,
@@ -353,6 +357,70 @@ function danhSachThe(rows: DonKinh[], coHoanThanh: boolean, trong: string, bang:
     </div>`).join('')}</div>`;
 }
 
+// ---- Mở trên thiết bị khác ----
+
+function maQr(link: string) {
+  const qr = qrcode(0, 'M');
+  qr.addData(link);
+  qr.make();
+  return qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+}
+
+function bangChiaSe() {
+  if (!S.chiaSe) return '';
+  const noiDung = S.chiaSe.length
+    ? S.chiaSe.map((link, i) => `
+      <div class="link-chia-se">
+        <div class="qr" aria-hidden="true">${maQr(link)}</div>
+        <div class="link-o">
+          <input readonly class="link-chu mono" id="link-${i}" value="${esc(link)}" aria-label="Địa chỉ mở app" data-act="chon-link">
+          <button class="btn chinh" data-act="sao-chep" data-i="${i}">${S.daSaoChep === i ? 'Đã sao chép ✓' : 'Sao chép'}</button>
+        </div>
+      </div>`).join('')
+    : '<div class="flash loi">Máy này chưa vào mạng Wi-Fi hoặc mạng dây nào, nên thiết bị khác chưa mở được. Kết nối mạng rồi bấm lại.</div>';
+  return `<div class="man" data-act="dong-chia-se"></div>
+  <aside class="hop-chia-se" role="dialog" aria-modal="true" aria-label="Mở trên thiết bị khác">
+    <header><h2>Mở trên thiết bị khác</h2><button class="btn small ghost" data-act="dong-chia-se" aria-label="Đóng">✕</button></header>
+    <p class="muted">Điện thoại hoặc máy khác phải dùng <b>cùng mạng Wi-Fi</b> với máy này. Quét mã QR bằng camera điện thoại, hoặc sao chép link rồi gửi qua Zalo/Messenger.</p>
+    ${noiDung}
+    ${S.chiaSe.length > 1 ? '<p class="muted nho">Máy có nhiều mạng; thường dùng link đầu tiên.</p>' : ''}
+  </aside>`;
+}
+
+async function moChiaSe() {
+  try {
+    const { links } = await goi<{ links: string[] }>('GET', '/api/dia-chi');
+    S.chiaSe = links;
+    S.daSaoChep = -1;
+    render();
+  } catch (e) {
+    S.thongBao = { loai: 'loi', noiDung: `Chưa lấy được địa chỉ: ${(e as Error).message}` };
+    render();
+  }
+}
+
+async function saoChep(i: number) {
+  const link = S.chiaSe?.[i];
+  if (!link) return;
+  let duoc = false;
+  try {
+    // Chỉ có khi mở bằng localhost/https; mở bằng địa chỉ IP thì dùng cách cũ bên dưới
+    // có trình duyệt treo lời gọi này khi không được phép: quá 1 giây thì dùng cách cũ
+    await Promise.race([navigator.clipboard.writeText(link), new Promise((_, loi) => setTimeout(() => loi(new Error('quá giờ')), 1000))]);
+    duoc = true;
+  } catch {
+    const o = document.getElementById(`link-${i}`) as HTMLInputElement | null;
+    if (o) {
+      o.focus();
+      o.select();
+      duoc = document.execCommand('copy');
+    }
+  }
+  S.daSaoChep = duoc ? i : -1;
+  if (!duoc) S.thongBao = { loai: 'loi', noiDung: 'Trình duyệt không cho sao chép tự động. Link đã được bôi đen, bấm Ctrl+C (hoặc giữ ngón tay để sao chép).' };
+  render();
+}
+
 function formDon() {
   if (!S.mo || !dienThoai()) return '';
   const d = tatCaDangHien().find((x) => x.id === S.mo);
@@ -503,7 +571,7 @@ function render() {
     return `<a href="#${t}" class="${S.trang === t ? 'on' : ''}" ${S.trang === t ? 'aria-current="page"' : ''}>${nhan}${dem}</a>`;
   }).join('');
   app.innerHTML = `
-    <div class="top"><div class="wrap row"><span class="brand">Sổ Đơn Kính</span><nav class="tabs">${tabs}</nav><span class="grow"></span><button class="btn small ghost" data-act="dang-xuat">Đăng xuất</button></div></div>
+    <div class="top"><div class="wrap row"><span class="brand">Sổ Đơn Kính</span><nav class="tabs">${tabs}</nav><span class="grow"></span><button class="btn small" data-act="chia-se" title="Lấy link mở app trên điện thoại hoặc máy khác">📱 Mở trên máy khác</button><button class="btn small ghost" data-act="dang-xuat">Đăng xuất</button></div></div>
     <main class="wrap">
       <div class="page-h">${tieuDe}<span class="grow"></span>
         <span class="saving ${S.trangThai}" aria-live="polite">${trangThai}</span></div>
@@ -520,6 +588,7 @@ function render() {
       }[S.trang]()}
     </main>
     ${formDon()}
+    ${bangChiaSe()}
     <datalist id="goi-y-loai">${(S.ds?.goiYLoai ?? []).map((x) => `<option value="${esc(x)}">`).join('')}</datalist>`;
 
   const el = k ? app.querySelector<HTMLInputElement>(`[data-k="${CSS.escape(k)}"]`) : null;
@@ -580,6 +649,13 @@ document.addEventListener('click', (e) => {
     }
     render();
   }
+  if (act === 'chia-se') void moChiaSe();
+  if (act === 'dong-chia-se') {
+    S.chiaSe = null;
+    render();
+  }
+  if (act === 'sao-chep') void saoChep(Number(b.dataset.i));
+  if (act === 'chon-link') (b as HTMLInputElement).select();
   if (act === 'dang-xuat') {
     void goi('POST', '/api/dang-xuat').finally(() => {
       S.daDangNhap = false;
@@ -620,6 +696,11 @@ document.addEventListener('focusout', (e) => {
 
 document.addEventListener('keydown', (e) => {
   const t = e.target as HTMLInputElement;
+  if (e.key === 'Escape' && S.chiaSe) {
+    S.chiaSe = null;
+    render();
+    return;
+  }
   if (e.key === 'Escape' && S.mo && !t.dataset?.khac) {
     S.mo = null;
     render();
