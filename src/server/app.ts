@@ -7,6 +7,7 @@ import {
   DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, demTheoNgay, denHen, hoanThanh, kinhHen, laThang, suCo, timDon, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
 } from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
+import { xuatExcel } from './xuat-excel.js';
 import { diaChiMangNoiBo } from './cau-hinh.js';
 import { DongBo } from './dong-bo.js';
 import type { KenhSheet } from '../core/dong-bo.js';
@@ -32,6 +33,10 @@ export interface ServerOptions {
   kenhSheet?: KenhSheet;
   /** Chu kỳ tự đồng bộ (ms); 0 = không tự chạy (test gọi dongBo()). Mặc định 30 giây. */
   chuKyDongBo?: number;
+  /** Thư mục lưu file Excel (Máy quầy: Desktop\Sổ Đơn Kính); không có thì không xuất Excel. */
+  thuMucExcel?: string;
+  /** Chu kỳ tự lưu Excel (ms); 0 = chỉ lưu khi bấm nút. Mặc định 1 giờ. */
+  chuKyExcel?: number;
   ghiLog?: (s: string) => void;
   /** Địa chỉ mạng nội bộ của máy; tiêm vào để test. */
   diaChiMang?: () => string[];
@@ -88,6 +93,14 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     }
     if (!ma || !kho.phienConHan(bamMaPhien(ma), bayGio())) {
       return guiJson(res, 401, { loi: 'Cần đăng nhập' });
+    }
+    if (url.pathname === '/api/xuat-excel' && req.method === 'POST') {
+      if (!opts.thuMucExcel) return guiJson(res, 400, { loi: 'Máy này chưa cấu hình thư mục lưu Excel' });
+      try {
+        return guiJson(res, 200, { duongDan: await luuExcel() });
+      } catch (e) {
+        return guiJson(res, 500, { loi: (e as Error).message });
+      }
     }
     if (url.pathname === '/api/dia-chi' && req.method === 'GET') {
       // Link để mở app trên thiết bị khác cùng mạng (điện thoại, máy khác)
@@ -209,6 +222,17 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const addr = server.address();
   const port = typeof addr === 'object' && addr ? addr.port : opts.port;
 
+  /** Lưu file Excel của hôm nay (ghi đè trong ngày). */
+  const luuExcel = () => xuatExcel(kho.tatCa(), opts.thuMucExcel!, today());
+  let henExcel: ReturnType<typeof setInterval> | undefined;
+  const chuKyExcel = opts.chuKyExcel ?? 60 * 60_000;
+  if (opts.thuMucExcel && chuKyExcel > 0) {
+    const tuLuu = () => luuExcel().then((f) => opts.ghiLog?.(`Đã lưu Excel: ${f}`), (e) => opts.ghiLog?.(`Lưu Excel lỗi: ${(e as Error).message}`));
+    void tuLuu();
+    henExcel = setInterval(tuLuu, chuKyExcel);
+    henExcel.unref?.();
+  }
+
   const chuKy = opts.chuKyDongBo ?? 30_000;
   if (dongBo && chuKy > 0) dongBo.batDau(chuKy);
 
@@ -220,6 +244,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     close: () =>
       new Promise<void>((resolve, reject) => {
         dongBo?.dung();
+        if (henExcel) clearInterval(henExcel);
         server.closeAllConnections();
         server.close((err) => {
           kho.dong();

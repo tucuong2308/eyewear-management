@@ -35,6 +35,7 @@ Lệnh này tạo lối tắt trong thư mục Startup để exe tự chạy cù
 - Biểu tượng ở khay hệ thống: bấm đúp hoặc "Mở Sổ Đơn Kính" để mở app, "Thoát" để tắt máy chủ.
 - Đóng trình duyệt không làm dừng máy chủ; chỉ một máy chủ chạy tại một thời điểm.
 - Dữ liệu, cấu hình và nhật ký: `%LOCALAPPDATA%\SoDonKinh`.
+- **File Excel**: exe tự lưu toàn bộ Đơn kính vào `Desktop\Sổ Đơn Kính\So-don-kinh-<ngày>.xlsx` khi mở và mỗi giờ (ghi đè file của ngày), giữ 30 file mới nhất. Nút **⬇ Xuất Excel** trong app lưu ngay. Đang mở file đó trong Excel thì lần lưu ấy bỏ qua, file cũ không hỏng.
 - Gỡ tự chạy và quy tắc tường lửa: `SoDonKinh.exe --go-cai-dat`.
 
 ## Chuyển dữ liệu tháng 11/2026

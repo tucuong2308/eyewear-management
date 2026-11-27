@@ -387,6 +387,18 @@ function bangChiaSe() {
   </aside>`;
 }
 
+async function xuatExcel() {
+  S.thongBao = { loai: 'ok', noiDung: 'Đang lưu file Excel…' };
+  render();
+  try {
+    const { duongDan } = await goi<{ duongDan: string }>('POST', '/api/xuat-excel');
+    S.thongBao = { loai: 'ok', noiDung: `Đã lưu file Excel trên Máy quầy: ${duongDan}` };
+  } catch (e) {
+    S.thongBao = { loai: 'loi', noiDung: `Chưa lưu được file Excel: ${(e as Error).message}` };
+  }
+  render();
+}
+
 async function moChiaSe() {
   try {
     const { links } = await goi<{ links: string[] }>('GET', '/api/dia-chi');
@@ -571,7 +583,7 @@ function render() {
     return `<a href="#${t}" class="${S.trang === t ? 'on' : ''}" ${S.trang === t ? 'aria-current="page"' : ''}>${nhan}${dem}</a>`;
   }).join('');
   app.innerHTML = `
-    <div class="top"><div class="wrap row"><span class="brand">Sổ Đơn Kính</span><nav class="tabs">${tabs}</nav><span class="grow"></span><button class="btn small" data-act="chia-se" title="Lấy link mở app trên điện thoại hoặc máy khác">📱 Mở trên máy khác</button><button class="btn small ghost" data-act="dang-xuat">Đăng xuất</button></div></div>
+    <div class="top"><div class="wrap row"><span class="brand">Sổ Đơn Kính</span><nav class="tabs">${tabs}</nav><span class="grow"></span><button class="btn small" data-act="xuat-excel" title="Lưu toàn bộ Đơn kính ra file Excel trong thư mục Sổ Đơn Kính trên Desktop của Máy quầy">⬇ Xuất Excel</button><button class="btn small" data-act="chia-se" title="Lấy link mở app trên điện thoại hoặc máy khác">📱 Mở trên máy khác</button><button class="btn small ghost" data-act="dang-xuat">Đăng xuất</button></div></div>
     <main class="wrap">
       <div class="page-h">${tieuDe}<span class="grow"></span>
         <span class="saving ${S.trangThai}" aria-live="polite">${trangThai}</span></div>
@@ -650,6 +662,7 @@ document.addEventListener('click', (e) => {
     render();
   }
   if (act === 'chia-se') void moChiaSe();
+  if (act === 'xuat-excel') void xuatExcel();
   if (act === 'dong-chia-se') {
     S.chiaSe = null;
     render();
