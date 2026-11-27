@@ -102,7 +102,10 @@ input.cell:focus,select.cell:focus{border-color:var(--accent);background:var(--s
 .A-tabs button.on{color:var(--fg);border-bottom-color:var(--accent)}
 .A-tabs .count{font-size:11px;background:var(--accent-weak);color:var(--accent);border-radius:999px;padding:1px 6px;margin-left:4px}
 .A-tabs .count.red{background:var(--red-bg);color:var(--red)}
-.grid-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-block:10px 120px}
+.grid-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-block:8px 28px}
+main.wrap{padding-bottom:140px}
+.sec-h{font-size:16px;margin:22px 0 4px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.sec-h .muted{font-size:13px;font-weight:500}
 table.grid{border-collapse:collapse;width:max-content;min-width:100%}
 table.grid th{position:sticky;top:0;background:var(--surface);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:600}
 table.grid td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:2px;vertical-align:middle}
@@ -126,7 +129,9 @@ table.grid tr.flashrow td{background:var(--red-bg)}
 .B-main{min-width:0;padding-bottom:120px}
 .B-list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-block:10px}
 .B-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.6fr) minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;width:100%}
-.B-row:last-child{border-bottom:0}
+.B-item{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding-right:12px}
+.B-item:last-child{border-bottom:0}
+.B-item .B-row{border-bottom:0;flex:1;min-width:0}
 .B-row:hover{background:var(--accent-weak)}
 .B-row .name{font-weight:600}
 .B-row .meta{font-size:12px;color:var(--muted)}
@@ -222,6 +227,7 @@ const Logic = (() => {
   }
   const byDay = (orders, day) => orders.filter(o => !o.trashed && o.ngayDat === day);
   const kinhHen = (orders, today) => orders.filter(isKinhHen).sort((a, b) => a.ngayHen.localeCompare(b.ngayHen));
+  const denHen = (orders, today) => kinhHen(orders, today).filter(o => o.ngayHen <= today);
   const suCo = orders => orders.filter(isSuCo);
   const trash = orders => orders.filter(o => o.trashed);
   const all = (orders, q, month) => {
@@ -230,7 +236,7 @@ const Logic = (() => {
       (!s || (o.ten || '').toLowerCase().includes(s) || (o.sdt || '').includes(s)))
       .sort((a, b) => b.ngayDat.localeCompare(a.ngayDat));
   };
-  return { REQUIRED, LABEL, DONE, isDone, isKinhHen, isSuCo, missing, urgency, complete, byDay, kinhHen, suCo, trash, all, diffDays };
+  return { REQUIRED, LABEL, DONE, isDone, isKinhHen, isSuCo, missing, urgency, complete, byDay, kinhHen, denHen, suCo, trash, all, diffDays };
 })();
 
 /* ================= DỮ LIỆU MẪU (giả) ================= */
@@ -283,6 +289,8 @@ function seed() {
   // ví dụ chắc chắn có: một đơn quá hẹn, một đơn hẹn mai, một đơn đang bị sự cố, một đơn trong thùng rác
   Object.assign(out[5], { ngayHen: addDays(TODAY, -2), ttKinh: 'Đã cắt – chưa trả', phanHoi: '' });
   Object.assign(out[6], { ngayHen: addDays(TODAY, 1), ttKinh: 'Chưa cắt', cat: '' });
+  Object.assign(out[8], { ngayHen: TODAY, ttKinh: 'Đã cắt – chưa trả', phanHoi: '' });
+  Object.assign(out[10], { ngayHen: addDays(TODAY, -1), ttKinh: 'Đã cắt – chưa trả', phanHoi: '', tuoi: '' });
   Object.assign(out[7], { ngayHen: addDays(TODAY, 4), ttKinh: 'Đã cắt – chưa trả', sdt: '' });
   Object.assign(out[9], { phanHoi: 'Sự cố', ttKinh: 'Đã trả', ghiChu: 'Cắt sai độ MP, đã đặt lại tròng' });
   Object.assign(out[12], { trashed: true, ghiChu: 'Nhập trùng' });
@@ -385,7 +393,7 @@ function counts() {
 function pageHeader() {
   const c = counts();
   const sub = {
-    today: `${fmt(TODAY)} · ${c.today} đơn đặt hôm nay`,
+    today: `${fmt(TODAY)} · nhập đơn mới và trả kính đến hẹn ngay tại đây`,
     history: `Chọn một ngày để xem các đơn đặt ngày đó`,
     hen: `${c.hen} đơn có ngày hẹn chưa trả${c.qua ? ` · ${c.qua} quá hẹn` : ''}`,
     suco: `Đơn có Phản hồi = Sự cố`,
@@ -432,8 +440,21 @@ const A_HEN_COLS = ['ngayHen', 'ten', 'sdt', 'mp', 'mt', 'hang', 'loai', 'ttTron
 function variantA() {
   const c = counts();
   const tabs = PAGES.map(([k, l]) => `<button class="${S.page === k ? 'on' : ''}" data-act="page" data-page="${k}">${l}${c[k] ? `<span class="count ${k === 'hen' && c.qua ? 'red' : ''}">${c[k]}</span>` : ''}</button>`).join('');
-  const rows = pageData();
-  const isHen = S.page === 'hen', isTrash = S.page === 'trash';
+  const main = S.page === 'today'
+    ? `${pageHeader()}<h2 class="sec-h">Nhập đơn hôm nay <span class="muted">${c.today} đơn</span></h2>${tableA(pageData(), 'entry')}
+       ${dueHeader()}${tableA(dueRows(), 'hen')}`
+    : `${pageHeader()}${tableA(pageData(), S.page === 'hen' ? 'hen' : 'entry')}`;
+  return `<div class="A-top"><div class="wrap row"><span class="A-brand">Sổ Đơn Kính</span><div class="A-tabs" role="tablist">${tabs}</div></div></div>
+    <main class="wrap">${main}</main>`;
+}
+const dueRows = () => Logic.denHen(S.orders, TODAY);
+function dueHeader() {
+  const d = dueRows(), q = d.filter(o => Logic.urgency(o, TODAY) === 'qua').length;
+  return `<h2 class="sec-h">Đến hẹn và quá hẹn <span class="muted">${d.length} đơn chờ trả${q ? ` · <span style="color:var(--red)">${q} quá hẹn</span>` : ''}</span></h2>`;
+}
+function tableA(rows, mode) {
+  const isHen = mode === 'hen', isTrash = S.page === 'trash';
+  if (isHen && !rows.length) return `<div class="empty">${S.page === 'today' ? 'Không có đơn nào đến hẹn hoặc quá hẹn. Mọi kính hẹn đã trả xong.' : emptyText()}</div>`;
   const cols = isHen ? A_HEN_COLS.map(f => [f, (A_COLS.find(x => x[0] === f) || [f, 'w-md'])[1]]) : A_COLS;
   const head = `<tr>${isHen ? '<th>Hoàn thành</th>' : ''}${cols.map(([f]) => `<th>${Logic.LABEL[f]}</th>`).join('')}<th></th></tr>`;
   const body = rows.map(o => {
@@ -442,10 +463,8 @@ function variantA() {
     const tail = isTrash ? `<button class="btn small" data-act="restore" data-id="${o.id}">Khôi phục</button>` : `<button class="btn small ghost" data-act="trash" data-id="${o.id}" title="Đưa vào thùng rác" aria-label="Đưa vào thùng rác">🗑</button>`;
     return `<tr class="${isHen ? 'u-' + u : ''} ${S.missingFor === o.id ? 'flashrow' : ''}">${doneBtn}${cols.map(([f, w]) => `<td class="${w} ${f === 'ngayHen' ? 'hen' : ''}">${control(o, f, 'cell')}</td>`).join('')}<td class="act">${tail}</td></tr>`;
   }).join('');
-  const newRow = canAdd() ? `<tr class="new"><td class="w-ten"><input class="cell" data-new="1" data-k="new:ten" id="in-new-ten" placeholder="+ Gõ tên bệnh nhân…" aria-label="Tên bệnh nhân mới"></td><td colspan="${cols.length}" class="muted" style="padding-left:10px;font-size:12px">Gõ tên rồi Enter: dòng tự tạo, Ngày đặt = ${fmt(S.page === 'history' ? S.histDay : TODAY)}</td></tr>` : '';
-  const table = rows.length || canAdd() ? `<div class="grid-wrap"><table class="grid"><thead>${head}</thead><tbody>${body}${newRow}</tbody></table></div>` : `<div class="empty">${emptyText()}</div>`;
-  return `<div class="A-top"><div class="wrap row"><span class="A-brand">Sổ Đơn Kính</span><div class="A-tabs" role="tablist">${tabs}</div></div></div>
-    <main class="wrap">${pageHeader()}${table}</main>`;
+  const newRow = canAdd() && !isHen ?`<tr class="new"><td class="w-ten"><input class="cell" data-new="1" data-k="new:ten" id="in-new-ten" placeholder="+ Gõ tên bệnh nhân…" aria-label="Tên bệnh nhân mới"></td><td colspan="${cols.length}" class="muted" style="padding-left:10px;font-size:12px">Gõ tên rồi Enter: dòng tự tạo, Ngày đặt = ${fmt(S.page === 'history' ? S.histDay : TODAY)}</td></tr>` : '';
+  return rows.length || newRow ? `<div class="grid-wrap"><table class="grid"><thead>${head}</thead><tbody>${body}${newRow}</tbody></table></div>` : `<div class="empty">${emptyText()}</div>`;
 }
 function emptyText() {
   return { today: 'Hôm nay chưa có đơn nào.', history: 'Ngày này không có đơn.', hen: 'Không còn kính hẹn nào chưa trả.', suco: 'Không có đơn nào đang bị sự cố.', tong: 'Không tìm thấy đơn phù hợp.', trash: 'Thùng rác trống.' }[S.page];
@@ -455,16 +474,21 @@ function emptyText() {
 function variantB() {
   const c = counts();
   const nav = PAGES.map(([k, l]) => `<button class="${S.page === k ? 'on' : ''}" data-act="page" data-page="${k}"><span>${l}</span>${c[k] ? `<span class="chip ${k === 'hen' && c.qua ? 'qua' : ''}">${c[k]}</span>` : ''}</button>`).join('');
-  const rows = pageData();
-  const list = rows.length ? `<div class="B-list">${rows.map(o => `
-    <button class="B-row" data-act="open" data-id="${o.id}">
+  const list = S.page === 'today'
+    ? `<h2 class="sec-h">Nhập đơn hôm nay <span class="muted">${c.today} đơn</span></h2>${listB(pageData(), false)}${dueHeader()}${listB(dueRows(), true)}`
+    : listB(pageData(), S.page === 'hen');
+  return `<div class="B"><nav class="B-side"><div class="brand">Sổ Đơn Kính</div>${nav}<div class="sp"></div><button data-act="logout">Đăng xuất</button></nav>
+    <main class="B-main wrap">${pageHeader()}${list}</main></div>${drawer()}`;
+}
+function listB(rows, withDone) {
+  if (!rows.length) return `<div class="empty">${withDone && S.page === 'today' ? 'Không có đơn nào đến hẹn hoặc quá hẹn.' : emptyText()}</div>`;
+  return `<div class="B-list">${rows.map(o => `
+    <div class="B-item"><button class="B-row" data-act="open" data-id="${o.id}">
       <span><span class="name">${esc(o.ten) || '<i class="muted">Chưa có tên</i>'}</span><br><span class="meta">${o.tuoi ? esc(o.tuoi) + ' tuổi · ' : ''}${esc(o.sdt) || 'chưa có SĐT'} · đặt ${fmt(o.ngayDat)}</span></span>
       <span class="rx mono meta">MP ${esc(o.mp) || '–'}<br>MT ${esc(o.mt) || '–'}</span>
       <span class="tro meta">${esc(o.hang)}<br>${esc(o.loai)}</span>
       <span class="chips">${statusChips(o)}</span>
-    </button>`).join('')}</div>` : `<div class="empty">${emptyText()}</div>`;
-  return `<div class="B"><nav class="B-side"><div class="brand">Sổ Đơn Kính</div>${nav}<div class="sp"></div><button data-act="logout">Đăng xuất</button></nav>
-    <main class="B-main wrap">${pageHeader()}${list}</main></div>${drawer()}`;
+    </button>${withDone ? `<button class="btn small" data-act="complete" data-id="${o.id}">✓ Hoàn thành</button>` : ''}</div>`).join('')}</div>`;
 }
 
 /* ================= VARIANT C: bảng tiến độ ================= */
@@ -472,24 +496,38 @@ function variantC() {
   const c = counts();
   const rows = pageData();
   let lanes;
+  if (S.page === 'today') {
+    const due = dueRows();
+    const dueLanes = [['Quá hẹn', 'qua', due.filter(o => Logic.urgency(o, TODAY) === 'qua')], ['Hẹn hôm nay', 'gan', due.filter(o => o.ngayHen === TODAY)]];
+    const todayLanes = S.lists.ttKinh.map(t => [t, '', rows.filter(o => o.ttKinh === t)]);
+    return shellC(`<h2 class="sec-h">Đến hẹn và quá hẹn</h2>${boardC(dueLanes)}<h2 class="sec-h">Đơn nhập hôm nay</h2>${boardC(todayLanes)}`, c);
+  }
   if (S.page === 'hen') {
     const groups = [['qua', 'Quá hẹn'], ['gan', 'Hôm nay – mai'], ['sap', '2 – 5 ngày'], ['', 'Sau đó']];
     lanes = groups.map(([u, l]) => [l, u, rows.filter(o => Logic.urgency(o, TODAY) === u)]);
   } else if (S.page === 'trash' || S.page === 'suco') {
     lanes = [[S.page === 'trash' ? 'Trong thùng rác' : 'Đang bị sự cố', '', rows]];
   } else {
-    lanes = Logic.DONE && S.lists.ttKinh.map(t => [t, '', rows.filter(o => o.ttKinh === t)]);
+    lanes = S.lists.ttKinh.map(t => [t, '', rows.filter(o => o.ttKinh === t)]);
   }
-  const card = o => `<div class="card"><button class="btn ghost" style="padding:0;text-align:left" data-act="open" data-id="${o.id}">
+  return shellC(boardC(lanes), c);
+}
+function cardC(o) {
+  return `<div class="card"><button class="btn ghost" style="padding:0;text-align:left" data-act="open" data-id="${o.id}">
       <div class="name">${esc(o.ten) || '<i class="muted">Chưa có tên</i>'}</div>
       <div class="rx mono muted">MP ${esc(o.mp) || '–'} · MT ${esc(o.mt) || '–'}</div>
       <div class="muted" style="font-size:12px">${esc(o.hang)} ${esc(o.loai)}</div></button>
       <div class="foot">${statusChips(o)}<span class="sp"></span>
       ${S.page === 'trash' ? `<button class="btn small" data-act="restore" data-id="${o.id}">Khôi phục</button>` : !Logic.isDone(o) && o.ngayHen ? `<button class="btn small" data-act="complete" data-id="${o.id}">✓ Hoàn thành</button>` : ''}</div></div>`;
-  const board = `<div class="board">${lanes.map(([l, u, list]) => `<section class="lane ${u}"><h3>${l}<span class="mono">${list.length}</span></h3>${list.map(card).join('') || '<div class="none">Trống</div>'}</section>`).join('')}</div>`;
+}
+function boardC(lanes) {
+  const card = cardC;
+  return `<div class="board">${lanes.map(([l, u, list]) => `<section class="lane ${u}"><h3>${l}<span class="mono">${list.length}</span></h3>${list.map(card).join('') || '<div class="none">Trống</div>'}</section>`).join('')}</div>`;
+}
+function shellC(content, c) {
   const tabs = PAGES.map(([k, l]) => `<button class="${S.page === k ? 'on' : ''}" data-act="page" data-page="${k}"><span class="n">${k === 'history' ? '▦' : c[k] ?? 0}</span>${l}</button>`).join('');
   return `<div class="C-top wrap"><span class="brand">Sổ Đơn Kính</span><span class="grow"></span><button class="btn small ghost" data-act="logout">Đăng xuất</button></div>
-    <main class="C-main wrap">${pageHeader()}${board}</main>
+    <main class="C-main wrap">${pageHeader()}${content}</main>
     ${canAdd() ? '<button class="btn primary fab" data-act="add">+ Thêm đơn</button>' : ''}
     <nav class="C-tabs">${tabs}</nav>${drawer()}`;
 }
