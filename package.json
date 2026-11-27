@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build:exe": "node scripts/build-exe.mjs",
-    "nhap-thang-11": "esbuild scripts/nhap-thang-11.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/nhap-thang-11.mjs --log-level=warning && node dist/nhap-thang-11.mjs"
+    "nhap-thang-11": "esbuild scripts/nhap-thang-11.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/nhap-thang-11.mjs --log-level=warning && node dist/nhap-thang-11.mjs",
+    "build:apps-script": "node scripts/build-apps-script.mjs"
   },
   "repository": {
     "type": "git",
