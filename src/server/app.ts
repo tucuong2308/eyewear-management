@@ -7,6 +7,9 @@ import {
   DANH_SACH_THEM_DUOC, DA_TRA, chuanHoa, demTheoNgay, denHen, hoanThanh, kinhHen, laThang, suCo, timDon, laLoaiDanhSach, laTruongSuaDuoc, themVaoDanhSach,
 } from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
+import {
+  THOI_HAN_MS, bamMaPhien, cookiePhien, docMaPhien, dungTaiKhoan, taoMaPhien, type TaiKhoan,
+} from './dang-nhap.js';
 
 export interface ServerOptions {
   dbPath: string;
@@ -16,6 +19,10 @@ export interface ServerOptions {
   today?: () => string;
   /** Thư mục chứa giao diện đã build (index.html, app.js). */
   webDir?: string;
+  /** Tài khoản chung của cửa hàng. */
+  taiKhoan: TaiKhoan;
+  /** Thời điểm hiện tại (ms); tiêm vào để test hạn phiên. */
+  bayGio?: () => number;
 }
 
 export interface RunningServer {
@@ -35,6 +42,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const kho = new KhoDonKinh(opts.dbPath);
   const today = opts.today ?? homNayTheoMay;
   const webDir = opts.webDir ?? join(ROOT, 'dist', 'web');
+  const bayGio = opts.bayGio ?? Date.now;
 
   const server = createServer(async (req, res) => {
     try {
@@ -47,6 +55,28 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   });
 
   async function xuLyApi(req: IncomingMessage, res: ServerResponse, url: URL) {
+    if (url.pathname === '/api/dang-nhap' && req.method === 'POST') {
+      const body = await docJson(req);
+      if (!dungTaiKhoan(opts.taiKhoan, body.ten, body.matKhau)) {
+        return guiJson(res, 401, { loi: 'Sai tên đăng nhập hoặc mật khẩu' });
+      }
+      const ma = taoMaPhien();
+      kho.taoPhien(bamMaPhien(ma), bayGio() + THOI_HAN_MS);
+      res.setHeader('set-cookie', cookiePhien(ma, THOI_HAN_MS / 1000));
+      return guiJson(res, 200, { ten: opts.taiKhoan.ten });
+    }
+    const ma = docMaPhien(req);
+    if (url.pathname === '/api/dang-xuat' && req.method === 'POST') {
+      if (ma) kho.xoaPhien(bamMaPhien(ma));
+      res.setHeader('set-cookie', cookiePhien('', 0));
+      return guiJson(res, 200, {});
+    }
+    if (!ma || !kho.phienConHan(bamMaPhien(ma), bayGio())) {
+      return guiJson(res, 401, { loi: 'Cần đăng nhập' });
+    }
+    if (url.pathname === '/api/phien' && req.method === 'GET') {
+      return guiJson(res, 200, { ten: opts.taiKhoan.ten });
+    }
     if (url.pathname === '/api/don-kinh' && req.method === 'GET') {
       const ngay = url.searchParams.get('ngayDat') ?? today();
       return guiJson(res, 200, kho.theoNgayDat(ngay));

@@ -28,6 +28,10 @@ export class KhoDonKinh {
     if (!cot.some((c) => c.name === 'thung_rac')) {
       this.db.exec('ALTER TABLE don_kinh ADD COLUMN thung_rac INTEGER NOT NULL DEFAULT 0');
     }
+    this.db.exec(`CREATE TABLE IF NOT EXISTS phien (
+  ma_bam TEXT PRIMARY KEY,
+  het_han INTEGER NOT NULL
+)`);
     this.db.exec(`CREATE TABLE IF NOT EXISTS danh_sach (
   stt INTEGER PRIMARY KEY AUTOINCREMENT,
   loai TEXT NOT NULL,
@@ -88,6 +92,19 @@ export class KhoDonKinh {
   /** Mọi đơn, kể cả trong Thùng rác; các quy tắc dùng chung tự loại đơn trong Thùng rác. */
   tatCa(): DonKinh[] {
     return this.db.prepare(`SELECT ${this.chon()} FROM don_kinh ORDER BY stt`).all().map(doc);
+  }
+
+  taoPhien(maBam: string, hetHan: number) {
+    this.db.prepare('INSERT INTO phien (ma_bam, het_han) VALUES (?, ?)').run(maBam, hetHan);
+  }
+
+  phienConHan(maBam: string, bayGio: number): boolean {
+    this.db.prepare('DELETE FROM phien WHERE het_han <= ?').run(bayGio);
+    return !!this.db.prepare('SELECT 1 FROM phien WHERE ma_bam = ?').get(maBam);
+  }
+
+  xoaPhien(maBam: string) {
+    this.db.prepare('DELETE FROM phien WHERE ma_bam = ?').run(maBam);
   }
 
   dong() {

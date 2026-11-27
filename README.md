@@ -15,6 +15,8 @@ npm run dev
 
 Mở http://localhost:8080. Dữ liệu lưu ở `data/so-don-kinh.db` (đã nằm trong `.gitignore`). Đổi cổng hoặc thư mục dữ liệu bằng biến môi trường `PORT` và `DATA_DIR`.
 
+**Đăng nhập:** lần chạy đầu tiên tạo `data/config.local.json` với tài khoản `cuahang` và một mật khẩu ngẫu nhiên, in ra màn hình. Đổi tên đăng nhập hoặc mật khẩu bằng cách sửa file đó rồi khởi động lại. File này không bao giờ được commit.
+
 ## Kiểm thử
 
 ```sh
