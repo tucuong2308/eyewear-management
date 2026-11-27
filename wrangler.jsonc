@@ -1,0 +1,21 @@
+// Bản online trên Cloudflare Workers (ADR 0006). Triển khai: npm run deploy:online
+// Bí mật đặt bằng `npx wrangler secret put <TÊN>`, không ghi vào file này:
+//   TEN_DANG_NHAP, MAT_KHAU   tài khoản chung của cửa hàng
+//   SHEET_URL, SHEET_KHOA     Web App Apps Script và Khóa Máy quầy (tab Cài đặt của Sheet)
+{
+  "name": "so-don-kinh",
+  "main": "src/online/worker.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist/web",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "so-don-kinh", "database_id": "62c8ff63-3519-4ab4-80bd-08f16259c3fa" }
+  ],
+  // Mỗi phút kéo thay đổi từ Google Sheet về (Máy quầy, người sửa tay)
+  "triggers": { "crons": ["* * * * *"] },
+  "observability": { "enabled": true }
+}

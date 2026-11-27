@@ -1,13 +1,13 @@
 // Đồng bộ Máy quầy ↔ Google Sheet (ADR 0003): đẩy các ô đã sửa ở local (local thắng), rồi kéo các ô khác về.
 import type { KenhSheet } from '../core/dong-bo.js';
-import type { KhoExcel } from './kho-excel.js';
+import type { Kho } from './api.js';
 
 export class DongBo {
   private dangChay: Promise<void> | null = null;
   private hen: ReturnType<typeof setInterval> | null = null;
 
   constructor(
-    private kho: KhoExcel,
+    private kho: Kho,
     private kenh: KenhSheet,
     private bayGio: () => number,
     private ghiLog: (s: string) => void = () => {},
@@ -35,12 +35,12 @@ export class DongBo {
 
   private async mot() {
     try {
-      const cho = this.kho.choDay();
+      const cho = await this.kho.choDay();
       if (cho.length) {
         await this.kenh.day(cho.map(({ id, truong, giaTri }) => ({ id, truong, giaTri })));
         await this.kho.xoaChoDay(cho);
       }
-      const moc = Number(this.kho.trangThai('mocKeo') ?? 0);
+      const moc = Number((await this.kho.trangThai('mocKeo')) ?? 0);
       const { thayDoi, moc: mocMoi } = await this.kenh.keo(moc);
       await this.kho.apDungTuSheet(thayDoi, mocMoi);
       await this.kho.datTrangThai('lanCuoiThanhCong', String(this.bayGio()));

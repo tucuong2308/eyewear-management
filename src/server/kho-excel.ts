@@ -13,12 +13,10 @@ import {
   type DanhSach, type DonKinh, type LoaiDanhSach, type TruongSuaDuoc,
 } from '../core/don-kinh.js';
 import type { ThayDoiO, TruongDongBo } from '../core/dong-bo.js';
+import type { Kho, LoiCoMaHttp, OChoDay } from './api.js';
 import { COT_TONG, RONG_COT, donTuHang, oCua } from '../core/bo-cuc.js';
 
-/** Một ô đã sửa ở Máy quầy nhưng chưa đẩy lên Sheet; `luc` tăng dần để biết ô có bị sửa tiếp không. */
-export interface OChoDay extends ThayDoiO {
-  luc: number;
-}
+export type { OChoDay } from './api.js';
 
 export const TAB_FILE = {
   don: 'TỔNG', danhSach: 'Danh sách', choDay: '_Chờ đẩy', trangThai: '_Trạng thái', phien: '_Phiên',
@@ -27,7 +25,8 @@ export const TAB_FILE = {
 const GIU_SAO_LUU = 30;
 const MAU_SAO_LUU = /^So-don-kinh-\d{4}-\d{2}-\d{2}\.xlsx$/;
 
-export class LoiFileDangMo extends Error {
+export class LoiFileDangMo extends Error implements LoiCoMaHttp {
+  readonly maHttp = 423;
   constructor(readonly duongDan: string) {
     super('File Excel Sổ Đơn Kính đang mở nên chưa lưu được. Đóng Excel rồi thử lại');
   }
@@ -46,7 +45,7 @@ export interface TuyChonKho {
   doiTen?: (tu: string, den: string) => void;
 }
 
-export class KhoExcel {
+export class KhoExcel implements Kho {
   private hangDoi: Promise<unknown> = Promise.resolve();
   /** mtime + kích thước của file lúc app đọc/ghi lần cuối; khác đi nghĩa là ai đó đã Lưu từ Excel. */
   private dauVet = '';
