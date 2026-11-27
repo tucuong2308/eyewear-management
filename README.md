@@ -41,6 +41,19 @@ Lệnh này tạo lối tắt trong thư mục Startup để exe tự chạy cù
 - Cấu hình và nhật ký: `%LOCALAPPDATA%\SoDonKinh`.
 - Gỡ tự chạy và quy tắc tường lửa: `SoDonKinh.exe --go-cai-dat`.
 
+## Bản online (Cloudflare Workers + D1)
+
+Địa chỉ: https://so-don-kinh.hidden-gems.workers.dev (ADR 0006). Cùng giao diện và API với exe; dữ liệu trong Cloudflare D1, đồng bộ với Google Sheet như một Máy quầy thứ hai (đẩy ngầm sau mỗi lần lưu, kéo về mỗi phút).
+
+```sh
+npx wrangler login          # một lần
+npm run deploy:online       # build giao diện rồi triển khai
+npx wrangler secret put MAT_KHAU   # đổi mật khẩu đăng nhập online (tương tự TEN_DANG_NHAP, SHEET_URL, SHEET_KHOA)
+npx wrangler tail           # xem nhật ký đang chạy
+```
+
+Bí mật (tài khoản, URL Web App, Khóa Máy quầy) là Worker secret, không nằm trong repo hay trong trình duyệt.
+
 ## Chuyển dữ liệu tháng 11/2026
 
 Tải file Google Sheets cũ "DANH SÁCH KÍNH 11/2026" về dạng .xlsx (Tệp → Tải xuống → Microsoft Excel), rồi:
@@ -63,6 +76,8 @@ npm run typecheck
 
 - `src/core`: quy tắc Đơn kính dùng chung cho giao diện, exe và Apps Script. Thuần, không đụng DOM, lưu trữ hay mạng.
 - `src/server`: máy chủ web của exe (API Đơn kính + phục vụ giao diện) và kho dữ liệu là file Excel (`kho-excel.ts`).
+- `src/server/api.ts`: API dùng chung cho exe và bản online.
+- `src/online`: bản online (Worker, kho D1).
 - `src/web`: giao diện.
 - `test`: test qua API của exe.
 - `prototype/` (chỉ trên nhánh `prototype/giao-dien-flow`): bản thử giao diện.

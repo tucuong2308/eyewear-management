@@ -12,7 +12,8 @@
     "build:exe": "node scripts/build-exe.mjs",
     "nhap-thang-11": "esbuild scripts/nhap-thang-11.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/nhap-thang-11.mjs --log-level=warning && node dist/nhap-thang-11.mjs",
     "build:apps-script": "node scripts/build-apps-script.mjs",
-    "do-toc-do": "esbuild scripts/do-toc-do.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/do-toc-do.mjs --log-level=warning && node dist/do-toc-do.mjs"
+    "do-toc-do": "esbuild scripts/do-toc-do.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/do-toc-do.mjs --log-level=warning && node dist/do-toc-do.mjs",
+    "deploy:online": "npm run build:web && wrangler deploy"
   },
   "repository": {
     "type": "git",
@@ -30,7 +31,8 @@
     "postject": "^1.0.0-alpha.6",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "wrangler": "^4.169.0"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

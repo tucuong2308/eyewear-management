@@ -1,6 +1,5 @@
 // Đăng nhập bằng tài khoản chung của cửa hàng; phiên lưu 30 ngày trong cookie.
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import type { IncomingMessage } from 'node:http';
 
 export interface TaiKhoan {
   ten: string;
@@ -28,8 +27,8 @@ export function bamMaPhien(ma: string) {
   return bam(ma).toString('hex');
 }
 
-export function docMaPhien(req: IncomingMessage): string | undefined {
-  const c = req.headers.cookie ?? '';
+export function docMaPhien(cookieHeader: string | null | undefined): string | undefined {
+  const c = cookieHeader ?? '';
   for (const phan of c.split(';')) {
     const [k, ...v] = phan.trim().split('=');
     if (k === COOKIE) return v.join('=');
@@ -37,6 +36,6 @@ export function docMaPhien(req: IncomingMessage): string | undefined {
   return undefined;
 }
 
-export function cookiePhien(ma: string, maxAgeGiay: number) {
-  return `${COOKIE}=${ma}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeGiay}`;
+export function cookiePhien(ma: string, maxAgeGiay: number, https = false) {
+  return `${COOKIE}=${ma}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeGiay}${https ? '; Secure' : ''}`;
 }
