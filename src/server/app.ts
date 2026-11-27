@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { chuanHoa, laTruongSuaDuoc } from '../core/don-kinh.js';
+import { DA_TRA, chuanHoa, denHen, hoanThanh, laTruongSuaDuoc } from '../core/don-kinh.js';
 import { KhoDonKinh } from './kho.js';
 
 export interface ServerOptions {
@@ -56,6 +56,17 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
       const ngay = chuanHoa('ngayDat', body.ngayDat || today());
       if (!ngay.ok) return guiJson(res, 400, { loi: ngay.loi });
       return guiJson(res, 201, kho.tao(ten.value, ngay.value));
+    }
+    if (url.pathname === '/api/den-hen' && req.method === 'GET') {
+      return guiJson(res, 200, denHen(kho.tatCa(), today()));
+    }
+    const ht = url.pathname.match(/^\/api\/don-kinh\/([^/]+)\/hoan-thanh$/);
+    if (ht && req.method === 'POST') {
+      const don = kho.lay(decodeURIComponent(ht[1]!));
+      if (!don) return guiJson(res, 404, { loi: 'Không tìm thấy Đơn kính' });
+      const kq = hoanThanh(don);
+      if (!kq.ok) return guiJson(res, 422, { loi: kq.loi, thieu: kq.thieu });
+      return guiJson(res, 200, kho.sua(don.id, 'ttKinh', DA_TRA));
     }
     const m = url.pathname.match(/^\/api\/don-kinh\/([^/]+)$/);
     if (m && req.method === 'PATCH') {

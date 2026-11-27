@@ -100,6 +100,79 @@ describe('Sửa một ô', () => {
   });
 });
 
+// Điền đủ mọi trường bắt buộc trước khi Hoàn thành (mọi trường trừ ADD, ship, ghi chú).
+const DU_THONG_TIN: Record<string, string> = {
+  tuoi: '30', sdt: '0912345678', mp: '-1.25', mt: '-1.50', hang: 'FANO', loai: 'FANO 1.61', nguon: 'Kính sẵn',
+  ttTrong: 'Đã có', tuVan: 'Lan', cat: 'Minh', phanHoi: 'Tốt',
+};
+
+async function taoDonHen(ten: string, ngayHen: string, duThongTin = true) {
+  const { body: don } = await api('POST', '/api/don-kinh', { ten, ngayDat: '2026-11-20' });
+  const truong = { ...(duThongTin ? DU_THONG_TIN : {}), ngayHen };
+  let kq = don;
+  for (const [field, value] of Object.entries(truong)) {
+    kq = (await api('PATCH', `/api/don-kinh/${don.id}`, { field, value })).body;
+  }
+  return kq;
+}
+
+describe('Đến hẹn và quá hẹn', () => {
+  it('gồm Kính hẹn có Ngày hẹn hôm nay hoặc đã qua, gần hôm nay nhất lên trước', async () => {
+    await taoDonHen('Quá ba ngày', '2026-11-24');
+    await taoDonHen('Hôm nay', HOM_NAY);
+    await taoDonHen('Ngày mai', '2026-11-28');
+    await taoDonHen('Quá một ngày', '2026-11-26');
+    await api('POST', '/api/don-kinh', { ten: 'Không hẹn' });
+
+    const r = await api('GET', '/api/den-hen');
+    expect(r.status).toBe(200);
+    expect(r.body.map((d: { ten: string }) => d.ten)).toEqual(['HÔM NAY', 'QUÁ MỘT NGÀY', 'QUÁ BA NGÀY']);
+  });
+
+  it('không gồm đơn đã Hoàn thành', async () => {
+    const don = await taoDonHen('Đã trả rồi', '2026-11-25');
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'ttKinh', value: 'Đã trả' });
+    expect((await api('GET', '/api/den-hen')).body).toEqual([]);
+  });
+});
+
+describe('Hoàn thành', () => {
+  it('bị chặn khi thiếu trường bắt buộc và trả về đúng các trường còn thiếu', async () => {
+    const don = await taoDonHen('Thiếu nhiều', HOM_NAY, false);
+    const r = await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`);
+    expect(r.status).toBe(422);
+    // Tình trạng tròng có giá trị mặc định "Chưa đặt" nên không bị tính là thiếu
+    expect(r.body.thieu).toEqual(['tuoi', 'sdt', 'mp', 'mt', 'hang', 'loai', 'nguon', 'tuVan', 'cat', 'phanHoi']);
+    expect(r.body.loi).toContain('SĐT');
+  });
+
+  it('không bắt buộc ADD, thời gian ship, địa chỉ ship, ghi chú', async () => {
+    const don = await taoDonHen('Đủ thông tin', HOM_NAY);
+    const r = await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`);
+    expect(r.status).toBe(200);
+    expect(r.body.add).toBe('');
+    expect(r.body.ghiChu).toBe('');
+  });
+
+  it('thành công thì Tình trạng kính = Đã trả và đơn rời khỏi Đến hẹn', async () => {
+    const don = await taoDonHen('Trả kính', '2026-11-26');
+    const r = await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`);
+    expect(r.body.ttKinh).toBe('Đã trả');
+    expect((await api('GET', '/api/den-hen')).body).toEqual([]);
+  });
+
+  it('Hoàn tác bằng cách đặt lại Tình trạng kính cũ thì đơn quay lại Đến hẹn', async () => {
+    const don = await taoDonHen('Bấm nhầm', HOM_NAY);
+    await api('POST', `/api/don-kinh/${don.id}/hoan-thanh`);
+    await api('PATCH', `/api/don-kinh/${don.id}`, { field: 'ttKinh', value: don.ttKinh });
+    expect((await api('GET', '/api/den-hen')).body.map((d: { id: string }) => d.id)).toEqual([don.id]);
+  });
+
+  it('báo 404 với đơn không tồn tại', async () => {
+    expect((await api('POST', '/api/don-kinh/khong-co/hoan-thanh')).status).toBe(404);
+  });
+});
+
 describe('Danh sách theo ngày', () => {
   it('chỉ trả về đơn có Ngày đặt bằng ngày được hỏi, theo thứ tự tạo', async () => {
     await api('POST', '/api/don-kinh', { ten: 'Một' });
