@@ -14,13 +14,13 @@ const COT_NHAP: [TruongSuaDuoc, string][] = [
   ['ttTrong', 'w-lg'], ['ttKinh', 'w-lg'], ['tuVan', 'w-md'], ['cat', 'w-md'], ['phanHoi', 'w-ph'],
   ['shipTime', 'w-md'], ['diaChi', 'w-lg'], ['ghiChu', 'w-lg'],
 ];
-// Bảng Đến hẹn: đủ các trường bắt buộc để nhập nốt phần thiếu ngay tại chỗ.
+// Bảng Đến hẹn: đủ các trường cần điền để nhập nốt ô trống ngay tại chỗ.
 const COT_HEN: [TruongSuaDuoc, string][] = [
   ['ngayHen', 'w-date'], ['ten', 'w-ten'], ['tuoi', 'w-sm'], ['sdt', 'w-md'], ['mp', 'w-rx'], ['mt', 'w-rx'],
   ['hang', 'w-md'], ['loai', 'w-lg'], ['nguon', 'w-md'], ['ttTrong', 'w-lg'], ['ttKinh', 'w-lg'],
   ['tuVan', 'w-md'], ['cat', 'w-md'], ['phanHoi', 'w-ph'], ['ghiChu', 'w-lg'],
 ];
-// Trang Kính hẹn: chỉ các cột cần thiết; trường còn thiếu khi Hoàn thành được hiện thêm.
+// Trang Kính hẹn: chỉ các cột cần thiết; cột của trường còn trống được hiện thêm.
 const COT_KINH_HEN: [TruongSuaDuoc, string][] = [
   ['ngayHen', 'w-date'], ['ten', 'w-ten'], ['sdt', 'w-md'], ['mp', 'w-rx'], ['mt', 'w-rx'], ['hang', 'w-md'],
   ['loai', 'w-lg'], ['ttTrong', 'w-lg'], ['ttKinh', 'w-lg'], ['cat', 'w-md'], ['phanHoi', 'w-ph'], ['ghiChu', 'w-lg'],
@@ -68,7 +68,6 @@ const S = {
   loiDangNhap: '',
   trangThai: '' as '' | 'dang' | 'ok' | 'loi',
   thongBao: null as ThongBao | null,
-  thieu: null as { id: string; bang: Bang; truong: TruongSuaDuoc[] } | null,
   focusSau: null as string | null,
   ds: null as (DanhSach & { goiYLoai: string[] }) | null,
   /** Ô đang gõ giá trị mới sau khi chọn "Khác…" (data-k của ô đó). */
@@ -131,7 +130,6 @@ async function taiLai() {
   S.suCo = suCo;
   S.thungRac = thungRac;
   S.ds = ds;
-  if (S.thieu && !kinhHen.some((d) => d.id === S.thieu!.id)) S.thieu = null;
   render();
 }
 
@@ -165,12 +163,10 @@ async function taoDon(ten: string, ngayDat: string, bang: Bang) {
 
 async function suaO(id: string, field: TruongSuaDuoc, value: string) {
   await luu(() => goi<DonKinh>('PATCH', `/api/don-kinh/${encodeURIComponent(id)}`, { field, value }));
-  if (S.thieu?.id === id) S.thieu.truong = S.thieu.truong.filter((f) => f !== field || !value.trim());
   render();
 }
 
-async function hoanThanh(id: string, bangGoc: Bang) {
-  const bang: Bang = dienThoai() ? 'mo' : bangGoc;
+async function hoanThanh(id: string) {
   const truoc = S.kinhHen.find((d) => d.id === id);
   if (!truoc) return;
   S.trangThai = 'dang';
@@ -178,7 +174,6 @@ async function hoanThanh(id: string, bangGoc: Bang) {
   try {
     await goi<DonKinh>('POST', `/api/don-kinh/${encodeURIComponent(id)}/hoan-thanh`);
     S.trangThai = 'ok';
-    S.thieu = null;
     S.mo = null;
     S.thongBao = {
       loai: 'ok',
@@ -190,16 +185,7 @@ async function hoanThanh(id: string, bangGoc: Bang) {
     await taiLai();
   } catch (e) {
     S.trangThai = '';
-    if (e instanceof LoiApi && e.status === 422) {
-      const thieu = (e.data.thieu as TruongSuaDuoc[]) ?? [];
-      S.thieu = { id, bang, truong: thieu };
-      if (bang === 'mo') S.mo = id;
-      const oDau = bang === 'mo' ? 'Nhập các ô tô đỏ' : 'Nhập ngay trên dòng tô đỏ';
-      S.thongBao = { loai: 'loi', noiDung: `Chưa hoàn thành được “${truoc.ten}”. ${e.message}. ${oDau} rồi bấm Hoàn thành lại.` };
-      S.focusSau = thieu[0] ? `${bang}:${id}:${thieu[0]}` : null;
-    } else {
-      S.thongBao = { loai: 'loi', noiDung: `Chưa hoàn thành được: ${(e as Error).message}` };
-    }
+    S.thongBao = { loai: 'loi', noiDung: `Chưa hoàn thành được: ${(e as Error).message}` };
     render();
   }
 }
@@ -310,7 +296,7 @@ function bangDayDu(bang: Bang, rows: DonKinh[], trong: string) {
     <tbody>${hang}</tbody></table></div>`;
 }
 
-/** Một dòng đầy đủ cột; ô của trường bắt buộc còn trống luôn tô đỏ. */
+/** Một dòng đầy đủ cột; ô của trường cần điền còn trống luôn tô đỏ. */
 function hangDayDu(bang: Bang, d: DonKinh) {
   const thieu = truongConThieu(d);
   return `<tr>${COT_NHAP.map(([f, w]) => `<td class="${w} ${thieu.includes(f) ? 'thieu' : ''}">${o(bang, d, f)}</td>`).join('')}${oXoa(d)}</tr>`;
@@ -330,7 +316,7 @@ function chipDon(d: DonKinh) {
   return chip.join('');
 }
 
-/** Một mục trên thẻ: có giá trị thì hiện bình thường; trường bắt buộc còn trống thì chỉ mục đó chữ đỏ. */
+/** Một mục trên thẻ: có giá trị thì hiện bình thường; trường cần điền còn trống thì chỉ mục đó chữ đỏ. */
 function mucThe(d: DonKinh, f: TruongSuaDuoc, hien: (v: string) => string) {
   const v = d[f];
   if (v.trim()) return hien(esc(v));
@@ -641,7 +627,7 @@ document.addEventListener('click', (e) => {
   const b = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
   if (!b) return;
   const act = b.dataset.act;
-  if (act === 'hoan-thanh' && b.dataset.id) void hoanThanh(b.dataset.id, (b.dataset.bang as Bang) ?? 'hen');
+  if (act === 'hoan-thanh' && b.dataset.id) void hoanThanh(b.dataset.id);
   if (act === 'phan-hoi' && b.dataset.id) {
     const don = tatCaDangHien().find((d) => d.id === b.dataset.id);
     const v = b.dataset.val ?? '';
@@ -655,10 +641,6 @@ document.addEventListener('click', (e) => {
   }
   if (act === 'dong-mo') {
     S.mo = null;
-    if (S.thieu?.bang === 'mo') {
-      S.thieu = null;
-      if (S.thongBao?.loai === 'loi') S.thongBao = null;
-    }
     render();
   }
   if (act === 'chia-se') void moChiaSe();
@@ -761,7 +743,6 @@ window.addEventListener('hashchange', () => {
   S.trang = trangTuHash();
   S.mo = null;
   S.thongBao = null;
-  S.thieu = null;
   render();
 });
 
